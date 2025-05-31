@@ -1,0 +1,5374 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>WARP Density Building Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --warp-accent: #0070f3;
+      --warp-yellow: #ffa500;
+      --background: #000000;
+      --foreground: #ffffff;
+      --card: #111111;
+      --card-foreground: #ffffff;
+      --popover: #111111;
+      --popover-foreground: #ffffff;
+      --primary: #ffffff;
+      --primary-foreground: #000000;
+      --secondary: #1a1a1a;
+      --secondary-foreground: #ffffff;
+      --muted: #1a1a1a;
+      --muted-foreground: #888888;
+      --accent: #1a1a1a;
+      --accent-foreground: #ffffff;
+      --destructive: #ff4444;
+      --destructive-foreground: #ffffff;
+      --border: #262626;
+      --input: #1a1a1a;
+      --ring: #0070f3;
+      --success: #00ff88;
+      --warning: #ffab00;
+      --info: #0099ff;
+      --purple: #8b5cf6;
+      
+      --radius: 0.75rem;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+      --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: var(--background);
+      color: var(--foreground);
+      font-size: 13px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* Login Page Styles */
+    .login-page {
+      display: flex;
+      min-height: 100vh;
+      background: #0a0a0f;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-page::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: 
+        radial-gradient(circle at 20% 30%, rgba(0, 112, 243, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 70%, rgba(139, 92, 246, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 80%, rgba(236, 72, 153, 0.2) 0%, transparent 50%);
+      animation: gradientFlow 20s ease-in-out infinite;
+    }
+
+    @keyframes gradientFlow {
+      0%, 100% {
+        transform: scale(1) rotate(0deg);
+        opacity: 0.8;
+      }
+      33% {
+        transform: scale(1.1) rotate(120deg);
+        opacity: 0.6;
+      }
+      66% {
+        transform: scale(0.9) rotate(240deg);
+        opacity: 1;
+      }
+    }
+
+    .login-left {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .login-container {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(10, 10, 15, 0.9);
+      backdrop-filter: blur(40px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 2rem;
+      padding: 3rem 2.5rem;
+      box-shadow: 
+        0 32px 64px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, 
+        transparent 0%, 
+        rgba(0, 112, 243, 0.8) 20%, 
+        rgba(139, 92, 246, 0.8) 50%, 
+        rgba(236, 72, 153, 0.8) 80%, 
+        transparent 100%);
+      animation: shimmer 3s ease-in-out infinite;
+    }
+
+    @keyframes shimmer {
+      0%, 100% { opacity: 0.5; }
+      50% { opacity: 1; }
+    }
+
+    .login-right {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      background: linear-gradient(135deg, 
+        rgba(0, 112, 243, 0.1) 0%, 
+        rgba(139, 92, 246, 0.1) 50%, 
+        rgba(236, 72, 153, 0.1) 100%);
+      overflow: hidden;
+    }
+
+    .login-right::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: 
+        conic-gradient(from 0deg at 50% 50%, 
+          transparent 0deg, 
+          rgba(0, 112, 243, 0.1) 60deg, 
+          rgba(139, 92, 246, 0.1) 120deg, 
+          rgba(236, 72, 153, 0.1) 180deg, 
+          rgba(255, 107, 0, 0.1) 240deg, 
+          rgba(0, 255, 136, 0.1) 300deg, 
+          transparent 360deg);
+      animation: rotate 30s linear infinite;
+    }
+
+    @keyframes rotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+      padding: 3rem;
+      max-width: 500px;
+    }
+
+    .hero-title {
+      font-size: 3.5rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, 
+        #ffffff 0%, 
+        #e5e7eb 30%, 
+        #9ca3af  60%, 
+        #6b7280 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1.5rem;
+      line-height: 1.1;
+      letter-spacing: -0.05em;
+    }
+
+    .hero-subtitle {
+      font-size: 1.25rem;
+      color: rgba(255, 255, 255, 0.7);
+      margin-bottom: 2rem;
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    .hero-features {
+      display: grid;
+      gap: 1rem;
+      text-align: left;
+    }
+
+    .hero-feature {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 1rem;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+    }
+
+    .hero-feature-icon {
+      width: 2.5rem;
+      height: 2.5rem;
+      border-radius: 0.75rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, 
+        rgba(0, 112, 243, 0.3) 0%, 
+        rgba(139, 92, 246, 0.3) 100%);
+      color: white;
+      font-size: 1rem;
+    }
+
+    .hero-feature-text {
+      flex: 1;
+    }
+
+    .hero-feature-title {
+      font-weight: 600;
+      color: white;
+      margin-bottom: 0.25rem;
+      font-size: 0.875rem;
+    }
+
+    .hero-feature-desc {
+      color: rgba(255, 255, 255, 0.6);
+      font-size: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .warp-logo-large {
+      font-size: 3rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, 
+        #0070f3 0%, 
+        #8b5cf6 50%, 
+        #ec4899 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.75rem;
+      letter-spacing: -0.05em;
+      text-shadow: none;
+    }
+
+    .login-subtitle {
+      font-size: 1.125rem;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .login-description {
+      font-size: 0.875rem;
+      color: rgba(255, 255, 255, 0.6);
+      font-weight: 400;
+    }
+
+    .auth-tabs {
+      display: flex;
+      background: rgba(26, 26, 26, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1rem;
+      padding: 0.375rem;
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .auth-tab {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.6);
+      padding: 0.875rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .auth-tab.active {
+      background: linear-gradient(135deg, 
+        rgba(0, 112, 243, 0.8) 0%, 
+        rgba(139, 92, 246, 0.8) 100%);
+      color: white;
+      box-shadow: 
+        0 4px 12px rgba(0, 112, 243, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+
+    .auth-tab:hover:not(.active) {
+      color: rgba(255, 255, 255, 0.9);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .auth-form {
+      margin-bottom: 1.5rem;
+    }
+
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--foreground);
+      margin-bottom: 0.5rem;
+      letter-spacing: 0.025em;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 0.875rem 1rem;
+      border: 1.5px solid var(--border);
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      background: rgba(26, 26, 26, 0.5);
+      color: var(--foreground);
+      transition: all 0.2s ease;
+      backdrop-filter: blur(10px);
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: var(--warp-accent);
+      box-shadow: 0 0 0 3px rgba(0, 112, 243, 0.1);
+      background: rgba(26, 26, 26, 0.8);
+    }
+
+    .form-input::placeholder {
+      color: var(--muted-foreground);
+    }
+
+    .login-button {
+      width: 100%;
+      background: var(--warp-accent);
+      color: white;
+      border: none;
+      padding: 0.875rem 1rem;
+      border-radius: 0.75rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .login-button:hover {
+      background: #0056d6;
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(0, 112, 243, 0.3);
+    }
+
+    .login-button:active {
+      transform: translateY(0);
+    }
+
+    .login-button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .loading-spinner {
+      display: none;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top: 2px solid white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-right: 0.5rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      margin: 1.5rem 0;
+      color: var(--muted-foreground);
+      font-size: 0.75rem;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .divider span {
+      padding: 0 1rem;
+    }
+
+    .guest-access {
+      text-align: center;
+    }
+
+    .guest-button {
+      background: transparent;
+      color: var(--muted-foreground);
+      border: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .guest-button:hover {
+      background: var(--muted);
+      color: var(--foreground);
+      transform: translateY(-1px);
+    }
+
+    .error-message {
+      background: rgba(255, 68, 68, 0.1);
+      border: 1px solid var(--destructive);
+      color: var(--destructive);
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .success-message {
+      background: rgba(0, 255, 136, 0.1);
+      border: 1px solid var(--success);
+      color: var(--success);
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.75rem;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .forgot-password {
+      text-align: center;
+      margin-top: 1rem;
+    }
+
+    .forgot-password a {
+      color: var(--warp-accent);
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .forgot-password a:hover {
+      text-decoration: underline;
+    }
+
+    /* Main App Styles */
+    .app-container {
+      display: none;
+    }
+
+    .header {
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      backdrop-filter: blur(12px);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .warp-logo {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--warp-accent);
+      letter-spacing: -0.025em;
+    }
+
+    .header-title {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: var(--muted-foreground);
+      font-size: 0.75rem;
+    }
+
+    .logout-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted-foreground);
+      padding: 0.375rem 0.75rem;
+      border-radius: calc(var(--radius) - 2px);
+      cursor: pointer;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .logout-btn:hover {
+      background: var(--destructive);
+      color: var(--destructive-foreground);
+      border-color: var(--destructive);
+    }
+
+    .header-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      padding: 0.5rem 0.75rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+
+    .nav-btn:hover {
+      background: var(--accent);
+      border-color: var(--accent-foreground);
+    }
+
+    .nav-btn.active {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .main-container {
+      display: flex;
+      height: calc(100vh - 57px);
+      position: relative;
+    }
+
+    .sidebar {
+      width: 400px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1.5rem;
+      transition: all 0.3s ease;
+    }
+
+    .map-container {
+      flex: 1;
+      position: relative;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .section {
+      margin-bottom: 1.5rem;
+      padding: 1.25rem;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .section h3 {
+      color: var(--card-foreground);
+      margin-bottom: 1rem;
+      font-size: 0.875rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      letter-spacing: -0.025em;
+    }
+
+    .section h3 i {
+      color: var(--warp-accent);
+      font-size: 0.875rem;
+    }
+
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 1.25rem;
+      text-align: center;
+      background: var(--muted);
+      cursor: pointer;
+      margin: 0.75rem 0;
+      transition: all 0.2s ease;
+      font-size: 0.75rem;
+    }
+
+    .upload-area:hover {
+      border-color: var(--warp-accent);
+      background: var(--accent);
+    }
+
+    .upload-area i {
+      color: var(--warp-accent);
+      font-size: 0.875rem;
+      margin-right: 0.375rem;
+    }
+
+    .file-input {
+      display: none;
+    }
+
+    .input-group {
+      margin: 0.75rem 0;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 0.375rem;
+      font-weight: 500;
+      color: var(--card-foreground);
+      font-size: 0.75rem;
+    }
+
+    .input-group input, .input-group select {
+      width: 100%;
+      padding: 0.625rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 2px);
+      font-size: 0.75rem;
+      transition: all 0.2s ease;
+      background: var(--input);
+      color: var(--foreground);
+    }
+
+    .input-group input:focus, .input-group select:focus {
+      outline: none;
+      border-color: var(--ring);
+      box-shadow: 0 0 0 2px rgba(0, 112, 243, 0.1);
+    }
+
+    .search-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .sort-controls {
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+    }
+
+    .sort-btn {
+      background: var(--muted);
+      border: 1px solid var(--border);
+      color: var(--muted-foreground);
+      padding: 0.375rem 0.625rem;
+      border-radius: calc(var(--radius) - 2px);
+      cursor: pointer;
+      font-size: 0.6875rem;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    .sort-btn:hover, .sort-btn.active {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border-color: var(--primary);
+    }
+
+    .btn {
+      background: var(--primary);
+      color: var(--primary-foreground);
+      border: 1px solid var(--primary);
+      padding: 0.625rem 1rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin: 0.1875rem 0.1875rem 0.1875rem 0;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      text-decoration: none;
+      justify-content: center;
+    }
+
+    .btn:hover {
+      background: var(--secondary);
+      border-color: var(--secondary);
+    }
+
+    .btn-success {
+      background: var(--success);
+      color: var(--background);
+      border-color: var(--success);
+    }
+
+    .btn-success:hover {
+      background: #00cc6a;
+      border-color: #00cc6a;
+    }
+
+    .btn-warning {
+      background: var(--warning);
+      color: var(--background);
+      border-color: var(--warning);
+    }
+
+    .btn-warning:hover {
+      background: #e09600;
+      border-color: #e09600;
+    }
+
+    .btn-info {
+      background: var(--info);
+      color: var(--background);
+      border-color: var(--info);
+    }
+
+    .btn-info:hover {
+      background: #0088e6;
+      border-color: #0088e6;
+    }
+
+    .btn-purple {
+      background: var(--purple);
+      color: var(--foreground);
+      border-color: var(--purple);
+    }
+
+    .btn-purple:hover {
+      background: #7c3aed;
+      border-color: #7c3aed;
+    }
+
+    .btn-large {
+      padding: 0.75rem 1.25rem;
+      font-size: 0.8125rem;
+      width: 100%;
+    }
+
+    .btn-small {
+      padding: 0.375rem 0.625rem;
+      font-size: 0.6875rem;
+    }
+
+    .file-status {
+      font-size: 0.6875rem;
+      color: var(--success);
+      margin-top: 0.375rem;
+      display: none;
+    }
+
+    /* Tab System */
+    .tab-container {
+      margin-bottom: 0.75rem;
+    }
+
+    .tab-buttons {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 0.75rem;
+      overflow-x: auto;
+    }
+
+    .tab-button {
+      background: transparent;
+      border: none;
+      color: var(--muted-foreground);
+      padding: 0.625rem 0.75rem;
+      cursor: pointer;
+      font-size: 0.6875rem;
+      font-weight: 500;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .tab-button.active {
+      color: var(--warp-accent);
+      border-bottom-color: var(--warp-accent);
+    }
+
+    .tab-button:hover:not(.active) {
+      color: var(--foreground);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    /* Results Page */
+    .results-page {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      background: var(--background);
+      z-index: 1500;
+    }
+
+    .results-page.show {
+      display: block;
+    }
+
+    .results-header {
+      background: var(--background);
+      border-bottom: 1px solid var(--border);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      backdrop-filter: blur(12px);
+    }
+
+    .results-layout {
+      display: flex;
+      height: calc(100vh - 57px);
+    }
+
+    .results-sidebar {
+      width: 420px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 1.25rem;
+    }
+
+    .results-map {
+      flex: 1;
+      position: relative;
+    }
+
+    #results-map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Selected Lanes Page */
+    .selected-lanes-page {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100vh;
+      background: var(--background);
+      z-index: 1500;
+    }
+
+    .selected-lanes-page.show {
+      display: block;
+    }
+
+    .selected-lanes-content {
+      padding: 1.5rem;
+      max-width: 1200px;
+      margin: 0 auto;
+      height: calc(100vh - 57px);
+      overflow-y: auto;
+    }
+
+    /* Lane Cards */
+    .lane-cards-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 1rem;
+      margin-top: 0.75rem;
+    }
+
+    .lane-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .lane-card:hover {
+      border-color: var(--warp-accent);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .lane-card.selected {
+      border-color: var(--warp-accent);
+      box-shadow: 0 0 0 1px var(--warp-accent);
+    }
+
+    .lane-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .lane-badges {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      align-items: flex-end;
+    }
+
+    .lane-type-badge, .match-type-badge {
+      padding: 0.1875rem 0.375rem;
+      border-radius: calc(var(--radius) - 4px);
+      font-size: 0.625rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    .lane-type-historical { background: var(--destructive); color: var(--destructive-foreground); }
+    .lane-type-ltl { background: var(--purple); color: var(--foreground); }
+    .lane-type-dedicated { background: var(--info); color: var(--background); }
+
+    .match-type-exact { background: var(--success); color: var(--background); }
+    .match-type-backhaul { background: var(--warning); color: var(--background); }
+    .match-type-pickup-detour { background: var(--info); color: var(--background); }
+    .match-type-dropoff-detour { background: var(--purple); color: var(--foreground); }
+
+    .lane-card-content {
+      margin-bottom: 0.75rem;
+    }
+
+    .lane-title {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--card-foreground);
+      margin-bottom: 0.375rem;
+    }
+
+    .lane-route {
+      font-size: 0.6875rem;
+      color: var(--muted-foreground);
+      margin-bottom: 0.75rem;
+      line-height: 1.4;
+    }
+
+    .lane-details-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .lane-detail {
+      display: flex;
+      flex-direction: column;
+      gap: 0.1875rem;
+    }
+
+    .lane-detail-label {
+      font-size: 0.625rem;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+      font-weight: 500;
+    }
+
+    .lane-detail-value {
+      font-size: 0.6875rem;
+      color: var(--card-foreground);
+      font-weight: 600;
+    }
+
+    .transit-time {
+      color: var(--warp-yellow);
+    }
+
+    .otp-score {
+      color: var(--success);
+    }
+
+    .otp-score.poor {
+      color: var(--destructive);
+    }
+
+    .otp-score.unknown {
+      color: var(--muted-foreground);
+    }
+
+    .detour-info {
+      background: rgba(0, 153, 255, 0.1);
+      border: 1px solid var(--info);
+      border-radius: calc(var(--radius) - 2px);
+      padding: 0.375rem;
+      margin: 0.375rem 0;
+      font-size: 0.6875rem;
+      color: var(--info);
+    }
+
+    .lane-card-actions {
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+    }
+
+    .pallet-indicator {
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 2px);
+      padding: 0.5rem;
+      margin-bottom: 0.625rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .pallet-info-text {
+      font-size: 0.6875rem;
+      color: var(--muted-foreground);
+    }
+
+    .pallet-count {
+      font-weight: 700;
+      color: var(--warp-yellow);
+      font-size: 0.8125rem;
+    }
+
+    /* Modals */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 2000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(8px);
+    }
+
+    .modal.show {
+      display: block;
+    }
+
+    .modal-content {
+      background: var(--card);
+      margin: 3% auto;
+      padding: 1.5rem;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-xl);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .modal-title {
+      color: var(--warp-accent);
+      font-size: 1.125rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .close {
+      color: var(--muted-foreground);
+      font-size: 1.5rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: color 0.2s;
+      background: none;
+      border: none;
+    }
+
+    .close:hover {
+      color: var(--foreground);
+    }
+
+    .upload-progress {
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--muted);
+      border-radius: calc(var(--radius) - 2px);
+      border: 1px solid var(--border);
+    }
+
+    .progress-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.375rem 0;
+      font-size: 0.6875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .progress-item:last-child {
+      border-bottom: none;
+    }
+
+    .progress-status {
+      font-weight: 500;
+    }
+
+    .progress-status.complete {
+      color: var(--success);
+    }
+
+    .progress-status.pending {
+      color: var(--muted-foreground);
+    }
+
+    .step-container {
+      display: none;
+    }
+
+    .step-container.active {
+      display: block;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted-foreground);
+    }
+
+    .spinner {
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--warp-accent);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 0.75rem auto;
+    }
+
+    .no-results {
+      text-align: center;
+      padding: 1.5rem;
+      color: var(--muted-foreground);
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      font-size: 0.75rem;
+    }
+
+    small {
+      font-size: 0.625rem;
+      color: var(--muted-foreground);
+    }
+
+    /* Selected lanes summary */
+    .selected-summary {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 0.75rem;
+      background: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 2px);
+    }
+
+    .stat-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--warp-accent);
+      margin-bottom: 0.1875rem;
+    }
+
+    .stat-label {
+      font-size: 0.625rem;
+      color: var(--muted-foreground);
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+
+    /* Equipment Selection */
+    .equipment-selector {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .equipment-options {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .equipment-option {
+      background: var(--muted);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+    }
+
+    .equipment-option:hover {
+      border-color: var(--warp-accent);
+      transform: translateY(-2px);
+    }
+
+    .equipment-option.selected {
+      border-color: var(--warp-accent);
+      background: rgba(0, 112, 243, 0.1);
+    }
+
+    .equipment-option.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .equipment-option.disabled:hover {
+      transform: none;
+      border-color: var(--border);
+    }
+
+    .equipment-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.375rem;
+      color: var(--warp-accent);
+    }
+
+    .equipment-name {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--card-foreground);
+      margin-bottom: 0.25rem;
+    }
+
+    .equipment-capacity {
+      font-size: 0.625rem;
+      color: var(--muted-foreground);
+    }
+
+    .equipment-warning {
+      background: rgba(255, 171, 0, 0.1);
+      border: 1px solid var(--warning);
+      color: var(--warning);
+      padding: 0.5rem;
+      border-radius: calc(var(--radius) - 2px);
+      font-size: 0.6875rem;
+      margin-top: 0.75rem;
+      display: none;
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+      .login-page {
+        padding: 1rem;
+      }
+
+      .login-container {
+        padding: 2rem 1.5rem;
+      }
+
+      .main-container {
+        flex-direction: column;
+      }
+      
+      .sidebar {
+        width: 100%;
+        height: 50vh;
+        order: 2;
+      }
+      
+      .map-container {
+        height: 50vh;
+        order: 1;
+      }
+      
+      .results-layout {
+        flex-direction: column;
+      }
+      
+      .results-sidebar {
+        width: 100%;
+        height: 50vh;
+        order: 2;
+      }
+      
+      .results-map {
+        height: 50vh;
+        order: 1;
+      }
+      
+      .lane-cards-container {
+        grid-template-columns: 1fr;
+      }
+      
+      .search-controls {
+        flex-direction: column;
+      }
+      
+      .sort-controls {
+        justify-content: center;
+      }
+
+      .header-content {
+        padding: 0 1rem;
+      }
+
+      .header-nav {
+        gap: 0.25rem;
+      }
+
+      .nav-btn {
+        padding: 0.375rem 0.5rem;
+        font-size: 0.6875rem;
+      }
+    }
+
+    /* Google Maps InfoWindow styling for dark theme */
+    .gm-style .gm-style-iw-c {
+      background-color: var(--card) !important;
+      color: var(--card-foreground) !important;
+    }
+
+    .gm-style .gm-style-iw-d {
+      color: var(--card-foreground) !important;
+    }
+
+    .gm-style .gm-style-iw-t::after {
+      background: var(--card) !important;
+    }
+
+    .gm-style .gm-ui-hover-effect {
+      background-color: var(--primary) !important;
+      border-radius: 4px !important;
+    }
+
+    .gm-style .gm-ui-hover-effect > span {
+      background-color: var(--primary-foreground) !important;
+      color: var(--primary) !important;
+      font-weight: 500 !important;
+    }
+
+    .gm-style .gm-ui-hover-effect:hover {
+      background-color: var(--secondary) !important;
+    }
+
+    /* Filter controls */
+    .filter-controls {
+      margin-top: 1rem;
+      padding: 1rem;
+      background: var(--muted);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+    }
+
+    .filter-title {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--card-foreground);
+      margin-bottom: 0.75rem;
+    }
+
+    .filter-group {
+      margin-bottom: 1rem;
+    }
+
+    .filter-label {
+      font-size: 0.6875rem;
+      font-weight: 500;
+      color: var(--muted-foreground);
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .filter-options {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .filter-option {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-size: 0.6875rem;
+      color: var(--card-foreground);
+    }
+
+    .filter-option input[type="checkbox"] {
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login Page -->
+<div class="login-page" id="login-page">
+  <div class="login-left">
+    <div class="login-container">
+      <div class="login-header">
+        <div class="warp-logo-large">WARP</div>
+        <div class="login-subtitle">Welcome back</div>
+        <div class="login-description">Sign in to access your logistics analytics platform</div>
+      </div>
+
+      <div class="auth-tabs">
+        <button class="auth-tab active" onclick="switchAuthTab('signin')" id="signin-tab">Sign In</button>
+        <button class="auth-tab" onclick="switchAuthTab('signup')" id="signup-tab">Sign Up</button>
+      </div>
+
+      <div class="error-message" id="error-message"></div>
+      <div class="success-message" id="success-message"></div>
+
+      <!-- Sign In Form -->
+      <form class="auth-form" id="signin-form">
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" placeholder="Enter your email" required id="signin-email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" placeholder="Enter your password" required id="signin-password">
+        </div>
+        <button type="submit" class="login-button" id="signin-button">
+          <div class="loading-spinner" id="signin-spinner"></div>
+          Sign In
+        </button>
+        <div class="forgot-password">
+          <a href="#" onclick="resetPassword()">Forgot your password?</a>
+        </div>
+      </form>
+
+      <!-- Sign Up Form -->
+      <form class="auth-form" id="signup-form" style="display: none;">
+        <div class="form-group">
+          <label class="form-label">Full Name</label>
+          <input type="text" class="form-input" placeholder="Enter your full name" required id="signup-name">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Company</label>
+          <input type="text" class="form-input" placeholder="Enter your company name" id="signup-company">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input type="email" class="form-input" placeholder="Enter your email" required id="signup-email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" class="form-input" placeholder="Create a password" required id="signup-password">
+        </div>
+        <button type="submit" class="login-button" id="signup-button">
+          <div class="loading-spinner" id="signup-spinner"></div>
+          Create Account
+        </button>
+      </form>
+
+      <div class="divider">
+        <span>or</span>
+      </div>
+
+      <div class="guest-access">
+        <button class="guest-button" onclick="continueAsGuest()">
+          <i class="fas fa-user"></i>
+          Continue as Guest
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-right">
+    <div class="hero-content">
+      <h1 class="hero-title">Optimize your logistics network</h1>
+      <p class="hero-subtitle">Discover co-mingling opportunities with our platform</p>
+      
+      <div class="hero-features">
+        <div class="hero-feature">
+          <div class="hero-feature-icon">
+            <i class="fas fa-route"></i>
+          </div>
+          <div class="hero-feature-text">
+            <div class="hero-feature-title">Route Matching</div>
+            <div class="hero-feature-desc">Find perfect co-mingling opportunities instantly</div>
+          </div>
+        </div>
+        
+        <div class="hero-feature">
+          <div class="hero-feature-icon">
+            <i class="fas fa-dollar-sign"></i>
+          </div>
+          <div class="hero-feature-text">
+            <div class="hero-feature-title">Cost Savings</div>
+            <div class="hero-feature-desc">Reduce transportation costs by up to 30%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Application -->
+<div class="app-container" id="app-container">
+  <div class="header">
+    <div class="header-content">
+      <div class="header-left">
+        <div class="warp-logo">WARP</div>
+        <div class="header-title">
+          <i class="fas fa-map-marked-alt"></i>
+          Density Building Map
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="header-nav">
+          <button class="nav-btn active" id="nav-analysis" onclick="showPage('analysis')">
+            <i class="fas fa-search"></i>
+            Analysis
+          </button>
+          <button class="nav-btn" id="nav-selected" onclick="showPage('selected')">
+            <i class="fas fa-bookmark"></i>
+            Selected Lanes
+            <span id="selected-count" style="background: var(--warp-accent); color: var(--background); padding: 0.125rem 0.375rem; border-radius: 9999px; font-size: 0.625rem; margin-left: 0.25rem;">0</span>
+          </button>
+        </div>
+        <div class="user-menu">
+          <span id="user-email"></span>
+          <button class="logout-btn" onclick="signOut()">
+            <i class="fas fa-sign-out-alt"></i>
+            Sign Out
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main-container" id="analysis-page">
+    <div class="sidebar" id="sidebar">
+      
+      <!-- Step 1: Data Upload -->
+      <div class="step-container active" id="step-upload">
+        <div class="section">
+          <h3><i class="fas fa-upload"></i> Data Upload - Step 1 of 2</h3>
+          
+          <div class="upload-area" id="facilities-upload-area">
+            <input type="file" id="facilities-upload" class="file-input" accept=".csv" />
+            <div><i class="fas fa-building"></i> Upload Customer Facilities</div>
+            <small>Your geocoded facilities CSV file</small>
+            <div class="file-status" id="facilities-status">Choose file...</div>
+          </div>
+          
+          <div class="upload-area" id="historical-upload-area">
+            <input type="file" id="historical-upload" class="file-input" accept=".csv" />
+            <div><i class="fas fa-history"></i> Upload Historical Lanes</div>
+            <small>Your geocoded historical lanes CSV file</small>
+            <div class="file-status" id="historical-status">Choose file...</div>
+          </div>
+          
+          <div class="upload-area" id="dedicated-upload-area">
+            <input type="file" id="dedicated-upload" class="file-input" accept=".csv" />
+            <div><i class="fas fa-truck"></i> Upload Dedicated Lanes</div>
+            <small>Your geocoded dedicated lanes CSV file</small>
+            <div class="file-status" id="dedicated-status">Choose file...</div>
+          </div>
+          
+          <div class="upload-area" id="ltl-upload-area">
+            <input type="file" id="ltl-upload" class="file-input" accept=".csv" />
+            <div><i class="fas fa-shipping-fast"></i> Upload WARP LTL Lanes</div>
+            <small>Your geocoded LTL lanes CSV file</small>
+            <div class="file-status" id="ltl-status">Choose file...</div>
+          </div>
+          
+          <div class="upload-area" id="crossdocks-upload-area">
+            <input type="file" id="crossdocks-upload" class="file-input" accept=".csv" />
+            <div><i class="fas fa-warehouse"></i> Upload WARP Crossdocks</div>
+            <small>Your geocoded crossdocks CSV file</small>
+            <div class="file-status" id="crossdocks-status">Choose file...</div>
+          </div>
+
+          <div class="upload-progress">
+            <div class="progress-item">
+              <span>Customer Facilities</span>
+              <span class="progress-status pending" id="facilities-progress">Optional</span>
+            </div>
+            <div class="progress-item">
+              <span>Historical Lanes <span style="color: var(--destructive);">*</span></span>
+              <span class="progress-status pending" id="historical-progress">Required</span>
+            </div>
+            <div class="progress-item">
+              <span>Dedicated Lanes <span style="color: var(--destructive);">*</span></span>
+              <span class="progress-status pending" id="dedicated-progress">Required</span>
+            </div>
+            <div class="progress-item">
+              <span>LTL Lanes <span style="color: var(--destructive);">*</span></span>
+              <span class="progress-status pending" id="ltl-progress">Required</span>
+            </div>
+            <div class="progress-item">
+              <span>Crossdocks <span style="color: var(--destructive);">*</span></span>
+              <span class="progress-status pending" id="crossdocks-progress">Required</span>
+            </div>
+          </div>
+          
+          <button class="btn btn-large" id="proceed-btn" onclick="proceedToAnalysis()" style="display: none; margin-top: 0.75rem;">
+            <i class="fas fa-arrow-right"></i> Proceed to Route Analysis
+          </button>
+          
+          <div style="margin-top: 1rem; padding: 1rem; background: var(--muted); border-radius: var(--radius); font-size: 0.6875rem; border: 1px solid var(--border);">
+            <strong style="color: var(--card-foreground);">💡 Requirements:</strong> Upload the 4 required files to proceed to analysis.<br>
+            <small style="color: var(--muted-foreground);"><span style="color: var(--destructive);">*</span> Required files must include latitude and longitude coordinates. Customer facilities are optional.</small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Route Analysis -->
+      <div class="step-container" id="step-analysis">
+        <div class="section">
+          <h3><i class="fas fa-search"></i> Route Analysis - Step 2 of 2</h3>
+          
+          <div class="input-group">
+            <label for="pickup-input"><i class="fas fa-map-marker-alt"></i> Pickup Location:</label>
+            <input type="text" id="pickup-input" placeholder="Enter city, state or address">
+          </div>
+          
+          <div class="input-group">
+            <label for="dropoff-input"><i class="fas fa-flag-checkered"></i> Dropoff Location:</label>
+            <input type="text" id="dropoff-input" placeholder="Enter city, state or address">
+          </div>
+          
+          <button class="btn btn-large" onclick="findOpportunities()">
+            <i class="fas fa-chart-line"></i> Find Co-Mingling Opportunities
+          </button>
+
+          <button class="btn btn-warning btn-large" onclick="goBackToUpload()" style="margin-top: 0.375rem;">
+            <i class="fas fa-arrow-left"></i> Back to Upload
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="map-container">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Results Page -->
+  <div class="results-page" id="results-page">
+    <div class="results-header">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="warp-logo">WARP</div>
+        <h1 style="font-size: 0.875rem; font-weight: 500; margin: 0; color: var(--foreground);">
+          <i class="fas fa-truck-loading"></i> Co-Mingling Opportunities
+        </h1>
+      </div>
+      <button class="btn" onclick="closeResultsPage()">
+        <i class="fas fa-arrow-left"></i> Back to Analysis
+      </button>
+    </div>
+    
+    <div class="results-layout">
+      <div class="results-sidebar" id="results-sidebar">
+        <!-- Results will be populated here -->
+      </div>
+      <div class="results-map">
+        <div id="results-map"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Selected Lanes Page -->
+  <div class="selected-lanes-page" id="selected-lanes-page">
+    <div class="results-header">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <div class="warp-logo">WARP</div>
+        <h1 style="font-size: 0.875rem; font-weight: 500; margin: 0; color: var(--foreground);">
+          <i class="fas fa-bookmark"></i> Selected Lanes
+        </h1>
+      </div>
+      <button class="btn" onclick="showPage('analysis')">
+        <i class="fas fa-arrow-left"></i> Back to Analysis
+      </button>
+    </div>
+    
+    <div class="selected-lanes-content" id="selected-lanes-content">
+      <!-- Selected lanes content will be populated here -->
+    </div>
+  </div>
+</div>
+
+<!-- Pricing Modal -->
+<div id="pricing-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        <i class="fas fa-dollar-sign"></i>
+        Lane Pricing
+      </h2>
+      <button class="close" onclick="closePricingModal()">&times;</button>
+    </div>
+    
+    <div id="pricing-details">
+      <!-- Pricing details will be populated here -->
+    </div>
+    
+    <div id="pricing-rate-breakdown">
+      <!-- Rate breakdown will be populated here -->
+    </div>
+
+    <div class="equipment-selector" id="equipment-selector">
+      <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.8125rem;">
+        <i class="fas fa-truck"></i> Select Equipment Type
+      </h4>
+      <div class="equipment-options" id="equipment-options">
+        <!-- Equipment options will be populated here -->
+      </div>
+      <div class="equipment-warning" id="equipment-warning">
+        <i class="fas fa-exclamation-triangle"></i> 
+        <span id="equipment-warning-text"></span>
+      </div>
+    </div>
+    
+    <div class="pallet-selector" id="pallet-selector" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem;">
+      <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.8125rem;"><i class="fas fa-boxes"></i> Select Number of Pallets</h4>
+      <div class="pallet-visual" id="pallet-visual" style="display: grid; grid-template-columns: repeat(13, 1fr); gap: 3px; margin-bottom: 0.75rem; padding: 0.75rem; background: var(--muted); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px);">
+        <!-- Pallet spots will be populated here -->
+      </div>
+      <div class="pallet-quantity-controls" style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+        <button class="quantity-btn" onclick="decreasePallets()" id="decrease-btn" style="background: var(--muted); border: 1px solid var(--border); color: var(--foreground); width: 32px; height: 32px; border-radius: calc(var(--radius) - 2px); cursor: pointer; font-size: 14px; font-weight: 700; transition: all 0.2s ease;">-</button>
+        <div class="quantity-display" id="pallet-quantity" style="font-size: 1.25rem; font-weight: 700; color: var(--warp-yellow); min-width: 48px; text-align: center;">0</div>
+        <button class="quantity-btn" onclick="increasePallets()" id="increase-btn" style="background: var(--muted); border: 1px solid var(--border); color: var(--foreground); width: 32px; height: 32px; border-radius: calc(var(--radius) - 2px); cursor: pointer; font-size: 14px; font-weight: 700; transition: all 0.2s ease;">+</button>
+        <div style="margin-left: 1.5rem; color: var(--muted-foreground);">
+          Total: <span id="selected-pallet-rate" style="color: var(--warp-yellow); font-weight: 700; font-size: 1rem;">$0</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="pricing-grid" id="pricing-options" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+      <!-- Pricing options will be populated here -->
+    </div>
+    
+    <div class="payment-section" id="payment-section" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-top: 1.5rem; display: none;">
+      <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.8125rem;">Book Your Shipment</h4>
+      <div class="payment-form" style="display: grid; gap: 0.75rem;">
+        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="input-group">
+            <label>Contact Name</label>
+            <input type="text" id="contact-name" placeholder="Your name">
+          </div>
+          <div class="input-group">
+            <label>Company</label>
+            <input type="text" id="company-name" placeholder="Company name">
+          </div>
+        </div>
+        <div class="form-row" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+          <div class="input-group">
+            <label>Email</label>
+            <input type="email" id="contact-email" placeholder="your@email.com">
+          </div>
+          <div class="input-group">
+            <label>Phone</label>
+            <input type="tel" id="contact-phone" placeholder="(555) 123-4567">
+          </div>
+        </div>
+        <div class="input-group">
+          <label>Special Requirements</label>
+          <textarea id="special-requirements" rows="3" style="width: 100%; padding: 0.625rem; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--input); color: var(--foreground); resize: vertical; font-size: 0.75rem;" placeholder="Any special handling, delivery instructions, or requirements..."></textarea>
+        </div>
+      </div>
+      
+      <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+        <button class="btn btn-success" onclick="submitBooking('instant')" style="flex: 1;">
+          <i class="fas fa-credit-card"></i> Book Instantly
+        </button>
+        <button class="btn btn-purple" onclick="submitBooking('meeting')" style="flex: 1;">
+          <i class="fas fa-calendar"></i> Schedule Meeting
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Truck Fill Modal -->
+<div id="truck-fill-modal" class="modal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2 class="modal-title">
+        <i class="fas fa-truck"></i>
+        Fill This Truck
+      </h2>
+      <button class="close" onclick="closeTruckFillModal()">&times;</button>
+    </div>
+    
+    <div class="truck-container" style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+      <div class="truck-visualization" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; text-align: center;">
+        <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.8125rem;">Truck Visualization</h4>
+        <svg class="truck-svg" viewBox="0 0 500 300" id="truck-svg" style="width: 100%; max-width: 500px; height: 200px;">
+          <rect x="50" y="100" width="400" height="150" fill="none" stroke="var(--border)" stroke-width="2" rx="5"/>
+          <rect x="60" y="110" width="380" height="130" fill="var(--muted)" stroke="var(--border)" stroke-width="1" rx="3"/>
+          <rect x="420" y="120" width="60" height="100" fill="var(--secondary)" stroke="var(--border)" stroke-width="2" rx="5"/>
+          <circle cx="100" cy="270" r="15" fill="var(--muted)" stroke="var(--border)" stroke-width="2"/>
+          <circle cx="400" cy="270" r="15" fill="var(--muted)" stroke="var(--border)" stroke-width="2"/>
+        </svg>
+        
+        <div class="capacity-bar" style="width: 100%; height: 16px; background: var(--border); border-radius: 8px; overflow: hidden; margin: 0.75rem 0;">
+          <div class="capacity-fill" id="capacity-fill" style="height: 100%; background: linear-gradient(90deg, var(--success), var(--warning), var(--destructive)); transition: width 0.3s ease; border-radius: 8px; width: 0%;"></div>
+        </div>
+        
+        <div style="margin-top: 0.75rem; font-size: 0.6875rem; color: var(--muted-foreground);">
+          <span id="capacity-text">0% Capacity Used</span>
+        </div>
+      </div>
+      
+      <div class="pallet-controls" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem;">
+        <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.8125rem;">Add Your Pallets</h4>
+        
+        <div id="existing-pallets-info" style="display: none;">
+          <div style="background: var(--muted); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); padding: 0.625rem; margin-bottom: 0.75rem;">
+            <div style="font-size: 0.6875rem; color: var(--muted-foreground); margin-bottom: 0.1875rem;">Existing pallets on this lane:</div>
+            <div style="font-size: 0.8125rem; font-weight: 700; color: var(--warp-yellow);" id="existing-pallets-count">0 pallets</div>
+          </div>
+        </div>
+        
+        <div class="pallet-input-group" style="margin-bottom: 0.75rem;">
+          <label for="pallet-description" style="display: block; margin-bottom: 0.375rem; font-weight: 500; color: var(--card-foreground); font-size: 0.75rem;">Description:</label>
+          <input type="text" id="pallet-description" class="pallet-input" placeholder="e.g., Electronics, Furniture" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--input); color: var(--foreground); font-size: 0.75rem;">
+        </div>
+        
+        <div class="pallet-input-group" style="margin-bottom: 0.75rem;">
+          <label for="pallet-weight" style="display: block; margin-bottom: 0.375rem; font-weight: 500; color: var(--card-foreground); font-size: 0.75rem;">Weight (lbs):</label>
+          <input type="number" id="pallet-weight" class="pallet-input" placeholder="0" min="0" max="2500" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--input); color: var(--foreground); font-size: 0.75rem;">
+        </div>
+        
+        <div class="pallet-input-group" style="margin-bottom: 0.75rem;">
+          <label for="pallet-dimensions" style="display: block; margin-bottom: 0.375rem; font-weight: 500; color: var(--card-foreground); font-size: 0.75rem;">Dimensions (L×W×H):</label>
+          <input type="text" id="pallet-dimensions" class="pallet-input" placeholder="48×40×48" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--input); color: var(--foreground); font-size: 0.75rem;">
+        </div>
+        
+        <div class="pallet-input-group" style="margin-bottom: 0.75rem;">
+          <label for="pallet-quantity-input" style="display: block; margin-bottom: 0.375rem; font-weight: 500; color: var(--card-foreground); font-size: 0.75rem;">Quantity:</label>
+          <input type="number" id="pallet-quantity-input" class="pallet-input" placeholder="1" min="1" max="26" style="width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); background: var(--input); color: var(--foreground); font-size: 0.75rem;">
+        </div>
+        
+        <button class="btn btn-success" onclick="addPallet()" style="width: 100%; margin-bottom: 0.75rem;">
+          <i class="fas fa-plus"></i> Add Pallet
+        </button>
+        
+        <div id="pallet-list">
+          <!-- Added pallets will appear here -->
+        </div>
+      </div>
+    </div>
+    
+    <div class="truck-stats" style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem;">
+      <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; text-align: center; font-size: 0.8125rem;">Truck Statistics</h4>
+      
+      <div class="stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0.75rem;">
+        <div class="stat-item">
+          <div class="stat-value" id="total-pallets">0</div>
+          <div class="stat-label">Total Pallets</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="total-weight">0 lbs</div>
+          <div class="stat-label">Total Weight</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="remaining-capacity">26</div>
+          <div class="stat-label">Remaining Spots</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="estimated-rate">$0</div>
+          <div class="stat-label">Estimated Rate</div>
+        </div>
+      </div>
+    </div>
+    
+    <div style="text-align: center; margin-top: 1.5rem;">
+      <button class="btn btn-success" onclick="submitTruckLoad()" style="margin-right: 0.75rem;">
+        <i class="fas fa-check"></i> Confirm Load
+      </button>
+      <button class="btn" onclick="closeTruckFillModal()">
+        <i class="fas fa-times"></i> Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Configuration
+const CONFIG = {
+  GOOGLE_MAPS_API_KEY: 'AIzaSyDn63vT2is3wsAwAKefNM3tsUWVnYQFVw8',
+  SUPABASE_URL: 'https://guxoatwimcuexshreoml.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd1eG9hdHdpbWN1ZXhzaHJlb21vIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg0NTQ2MjcsImV4cCI6MjA2NDAzMDYyN30.jTFkHcCBSudUEeQg32OEPwirkf5r4sVXHKUXjZu5qYw',
+  STRIPE_PUBLIC_KEY: 'pk_test_your_stripe_public_key_here'
+};
+
+// Initialize Supabase
+const supabase = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+// Equipment configuration
+const EQUIPMENT_CONFIG = {
+  'Cargo Van': { 
+    baseFee: 95, 
+    perMile: 1.50, 
+    perStop: 20.00, 
+    maxPallets: 2,
+    maxMiles: 500,
+    icon: 'fa-shuttle-van'
+  },
+  '26\' Box truck': { 
+    baseFee: 160, 
+    perMile: 1.75, 
+    perStop: 50.00, 
+    maxPallets: 13,
+    maxMiles: 500,
+    icon: 'fa-truck-moving'
+  },
+  '53\' Dry Trailer': { 
+    baseFee: 275, 
+    perMile: 2.50, 
+    perStop: 75.00, 
+    maxPallets: 26,
+    maxMiles: Infinity,
+    icon: 'fa-truck'
+  },
+  '26\' Reefer Box Truck': { 
+    baseFee: 375, 
+    perMile: 2.25, 
+    perStop: 35.00, 
+    maxPallets: 13,
+    maxMiles: 500,
+    icon: 'fa-snowflake'
+  }
+};
+
+const RATE_CARD = EQUIPMENT_CONFIG;
+
+// Global Variables
+let map;
+let resultsMap;
+let geocoder;
+let customerFacilities = [];
+let historicalLanes = [];
+let warpLtlLanes = [];
+let dedicatedLanes = [];
+let warpCrossdocks = [];
+let markers = [];
+let pickupAutocomplete;
+let dropoffAutocomplete;
+let currentSearchMarkers = [];
+let currentSearchLines = [];
+let selectedLaneMarkers = [];
+let selectedLaneLines = [];
+let currentOpportunities = [];
+let filteredOpportunities = [];
+let selectedLanes = new Set();
+let selectedLanesData = new Map();
+let isPanelMinimized = false;
+let currentSortField = '';
+let currentSortDirection = 'asc';
+let currentLaneForPricing = null;
+let stripe = null;
+let currentPickupLocation = null;
+let currentDropoffLocation = null;
+let selectedPalletCount = 0;
+let currentPalletRate = 0;
+let currentSelectedEquipment = '53\' Dry Trailer';
+let currentPage = 'analysis';
+let currentUser = null;
+let currentSession = null;
+let isGuest = false;
+let currentPricingType = null;
+let currentDriverType = null;
+
+// Truck Fill Variables
+let pallets = [];
+let existingPallets = 0;
+let currentLaneForTruckFill = null;
+const MAX_TRUCK_CAPACITY = 26;
+const MAX_TRUCK_WEIGHT = 80000;
+
+// Frequency options
+const FREQUENCY_OPTIONS = ['Daily', 'Weekly', 'Bi-weekly', 'Monthly'];
+
+// Days options
+const LTL_DEDICATED_DAYS = ['Mon/Tue/Wed', 'Tue/Wed/Thu', 'Wed/Thu/Fri', 'Mon/Wed/Fri'];
+const HISTORICAL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
+let filesUploaded = {
+  facilities: false,
+  historical: false,
+  dedicated: false,
+  ltl: false,
+  crossdocks: false
+};
+
+// Filter state
+let selectedAvailableSpace = [];
+let selectedFrequencies = [];
+
+function generateRandomFrequency() {
+  return FREQUENCY_OPTIONS[Math.floor(Math.random() * FREQUENCY_OPTIONS.length)];
+}
+
+function generateRandomDaysRun(laneType) {
+  if (laneType === 'Historical') {
+    return HISTORICAL_DAYS[Math.floor(Math.random() * HISTORICAL_DAYS.length)];
+  } else {
+    return LTL_DEDICATED_DAYS[Math.floor(Math.random() * LTL_DEDICATED_DAYS.length)];
+  }
+}
+
+function generateRandomOTP() {
+  return 95 + (Math.random() * 5);
+}
+
+function generateRandomPalletCount() {
+  return Math.floor(Math.random() * 20) + 1;
+}
+
+function enhanceLanesWithPallets() {
+  historicalLanes.forEach(lane => {
+    if (!lane.Existing_Pallets) {
+      lane.Existing_Pallets = generateRandomPalletCount();
+    }
+    if (!lane.Frequency) {
+      lane.Frequency = generateRandomFrequency();
+    }
+    if (!lane.Days_Run) {
+      lane.Days_Run = generateRandomDaysRun('Historical');
+    }
+    if (!lane.OTP_Percentage || lane.OTP_Percentage < 95) {
+      lane.OTP_Percentage = generateRandomOTP();
+    }
+  });
+  
+  warpLtlLanes.forEach(lane => {
+    if (!lane.Existing_Pallets) {
+      lane.Existing_Pallets = generateRandomPalletCount();
+    }
+    if (!lane.Frequency) {
+      lane.Frequency = generateRandomFrequency();
+    }
+    if (!lane.Days_Run) {
+      lane.Days_Run = generateRandomDaysRun('LTL');
+    }
+    if (!lane.OTP_Percentage || lane.OTP_Percentage < 95) {
+      lane.OTP_Percentage = generateRandomOTP();
+    }
+  });
+  
+  dedicatedLanes.forEach(lane => {
+    if (!lane.Existing_Pallets) {
+      lane.Existing_Pallets = generateRandomPalletCount();
+    }
+    if (!lane.Frequency) {
+      lane.Frequency = generateRandomFrequency();
+    }
+    if (!lane.Days_Run) {
+      lane.Days_Run = generateRandomDaysRun('Dedicated');
+    }
+    if (!lane.OTP_Percentage || lane.OTP_Percentage < 95) {
+      lane.OTP_Percentage = generateRandomOTP();
+    }
+  });
+}
+
+// Updated Transit Time Calculation using logic from the first document
+function calculateTransitTime(miles, routeType = 'solo') {
+  const cfg = {
+    pace: 55,
+    shift: 11,
+    load: 1,
+    buffer: 1.5 // 90 minutes
+  };
+  
+  if (routeType === 'team') {
+    // Team drivers - continuous driving
+    const driveHours = miles / cfg.pace;
+    return cfg.load + driveHours + cfg.buffer;
+  } else {
+    // Solo driver - needs rest periods
+    const maxMilesPerShift = cfg.pace * cfg.shift;
+    let remainingMiles = miles;
+    let totalHours = cfg.load;
+    
+    while (remainingMiles > 0) {
+      const milesThisLeg = Math.min(maxMilesPerShift, remainingMiles);
+      const driveHours = milesThisLeg / cfg.pace;
+      totalHours += driveHours;
+      remainingMiles -= milesThisLeg;
+      
+      if (remainingMiles > 0) {
+        totalHours += 10; // 10-hour rest period
+      }
+    }
+    
+    totalHours += cfg.buffer;
+    return totalHours;
+  }
+}
+
+// Authentication Functions
+async function signUp() {
+  const email = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+  const fullName = document.getElementById('signup-name').value.trim();
+  const companyName = document.getElementById('signup-company').value.trim();
+
+  if (!email || !password || !fullName) {
+    showError('Please fill in all required fields');
+    return;
+  }
+
+  if (password.length < 6) {
+    showError('Password must be at least 6 characters');
+    return;
+  }
+
+  try {
+    setLoading('signup', true);
+    
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+          company_name: companyName
+        }
+      }
+    });
+
+    if (error) throw error;
+
+    if (data.user && !data.user.email_confirmed_at) {
+      showSuccess('Please check your email to confirm your account');
+    } else {
+      showSuccess('Account created successfully!');
+      switchAuthTab('signin');
+    }
+  } catch (error) {
+    console.error('Signup error:', error);
+    showError(error.message);
+  } finally {
+    setLoading('signup', false);
+  }
+}
+
+async function signIn() {
+  const email = document.getElementById('signin-email').value.trim();
+  const password = document.getElementById('signin-password').value;
+
+  if (!email || !password) {
+    showError('Please fill in all fields');
+    return;
+  }
+
+  try {
+    setLoading('signin', true);
+    
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) throw error;
+
+    currentUser = data.user;
+    isGuest = false;
+    
+    // Update user profile if needed
+    await updateUserProfile(data.user);
+    
+    showApp();
+  } catch (error) {
+    console.error('Signin error:', error);
+    showError(error.message);
+  } finally {
+    setLoading('signin', false);
+  }
+}
+
+async function signOut() {
+  try {
+    await supabase.auth.signOut();
+    currentUser = null;
+    isGuest = false;
+    currentSession = null;
+    showLogin();
+  } catch (error) {
+    console.error('Signout error:', error);
+  }
+}
+
+async function resetPassword() {
+  const email = prompt('Please enter your email address:');
+  if (!email) return;
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) throw error;
+    
+    alert('Password reset email sent! Please check your inbox.');
+  } catch (error) {
+    console.error('Reset password error:', error);
+    alert('Error sending reset email: ' + error.message);
+  }
+}
+
+function continueAsGuest() {
+  currentUser = null;
+  isGuest = true;
+  showApp();
+}
+
+async function updateUserProfile(user) {
+  try {
+    const { data: profile } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('id', user.id)
+      .single();
+
+    if (!profile) {
+      const { error } = await supabase
+        .from('user_profiles')
+        .insert({
+          id: user.id,
+          email: user.email,
+          full_name: user.user_metadata?.full_name,
+          company_name: user.user_metadata?.company_name
+        });
+      
+      if (error) console.error('Profile creation error:', error);
+    }
+  } catch (error) {
+    console.error('Profile update error:', error);
+  }
+}
+
+// Session Management
+async function createSearchSession(pickupLocation, dropoffLocation) {
+  if (isGuest) return null;
+
+  try {
+    const sessionData = {
+      user_id: currentUser?.id,
+      pickup_location: pickupLocation.address,
+      pickup_latitude: pickupLocation.lat,
+      pickup_longitude: pickupLocation.lng,
+      dropoff_location: dropoffLocation.address,
+      dropoff_latitude: dropoffLocation.lat,
+      dropoff_longitude: dropoffLocation.lng,
+      search_timestamp: new Date().toISOString(),
+      ip_address: await getUserIP(),
+      user_agent: navigator.userAgent
+    };
+
+    const { data, error } = await supabase
+      .from('search_sessions')
+      .insert(sessionData)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    currentSession = data;
+    return data;
+  } catch (error) {
+    console.error('Session creation error:', error);
+    return null;
+  }
+}
+
+async function updateSessionOpportunities(opportunityCount) {
+  if (!currentSession || isGuest) return;
+
+  try {
+    const { error } = await supabase
+      .from('search_sessions')
+      .update({ 
+        total_opportunities_found: opportunityCount,
+        session_duration_minutes: Math.round((Date.now() - new Date(currentSession.search_timestamp)) / 60000)
+      })
+      .eq('id', currentSession.id);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Session update error:', error);
+  }
+}
+
+// Lane Interaction Tracking
+async function trackLaneInteraction(opportunity, interactionType, additionalData = {}) {
+  if (isGuest) return;
+
+  try {
+    const interactionData = {
+      session_id: currentSession?.id,
+      user_id: currentUser?.id,
+      lane_type: opportunity.type,
+      lane_code: opportunity.code,
+      customer_name: opportunity.customer,
+      match_type: opportunity.matchType,
+      interaction_type: interactionType,
+      interaction_timestamp: new Date().toISOString(),
+      pricing_data: additionalData.pricing || null,
+      booking_data: additionalData.booking || null
+    };
+
+    const { error } = await supabase
+      .from('lane_interactions')
+      .insert(interactionData);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Interaction tracking error:', error);
+  }
+}
+
+// Selected Lanes Management
+async function saveSelectedLane(opportunity) {
+  if (isGuest) return;
+
+  try {
+    const laneData = {
+      user_id: currentUser.id,
+      lane_type: opportunity.type,
+      lane_code: opportunity.code,
+      customer_name: opportunity.customer,
+      match_type: opportunity.matchType,
+      route_description: opportunity.route,
+      selected_at: new Date().toISOString(),
+      is_active: true
+    };
+
+    const { error } = await supabase
+      .from('selected_lanes')
+      .upsert(laneData, { 
+        onConflict: 'user_id,lane_type,lane_code,match_type' 
+      });
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Selected lane save error:', error);
+  }
+}
+
+async function removeSelectedLaneFromDB(opportunity) {
+  if (isGuest) return;
+
+  try {
+    const { error } = await supabase
+      .from('selected_lanes')
+      .update({ is_active: false })
+      .eq('user_id', currentUser.id)
+      .eq('lane_type', opportunity.type)
+      .eq('lane_code', opportunity.code)
+      .eq('match_type', opportunity.matchType);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('Selected lane removal error:', error);
+  }
+}
+
+async function loadUserSelectedLanes() {
+  if (isGuest || !currentUser) return;
+
+  try {
+    const { data, error } = await supabase
+      .from('selected_lanes')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .eq('is_active', true);
+
+    if (error) throw error;
+
+    // Restore selected lanes in memory
+    selectedLanesData.clear();
+    data.forEach(lane => {
+      const key = `${lane.lane_type}-${lane.lane_code}-${lane.match_type}`;
+      selectedLanesData.set(key, {
+        type: lane.lane_type,
+        code: lane.lane_code,
+        customer: lane.customer_name,
+        matchType: lane.match_type,
+        route: lane.route_description
+      });
+    });
+
+    updateSelectedCount();
+  } catch (error) {
+    console.error('Load selected lanes error:', error);
+  }
+}
+
+// Booking Management
+async function saveBooking(bookingData) {
+  if (isGuest) return null;
+
+  try {
+    const booking = {
+      user_id: currentUser.id,
+      session_id: currentSession?.id,
+      lane_type: bookingData.lane.type,
+      lane_code: bookingData.lane.code,
+      customer_name: bookingData.lane.customer,
+      equipment_type: bookingData.equipmentType,
+      pricing_type: bookingData.pricingType,
+      pallet_count: bookingData.palletCount,
+      total_rate: bookingData.rate,
+      booking_type: bookingData.bookingType,
+      contact_name: bookingData.contact.name,
+      contact_email: bookingData.contact.email,
+      contact_phone: bookingData.contact.phone,
+      company_name: bookingData.contact.company,
+      special_requirements: bookingData.contact.requirements,
+      booking_status: 'pending',
+      created_at: new Date().toISOString()
+    };
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert(booking)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('Booking save error:', error);
+    return null;
+  }
+}
+
+// Utility Functions
+async function getUserIP() {
+  try {
+    const response = await fetch('https://api.ipify.org?format=json');
+    const data = await response.json();
+    return data.ip;
+  } catch (error) {
+    return null;
+  }
+}
+
+function showLogin() {
+  document.getElementById('login-page').style.display = 'flex';
+  document.getElementById('app-container').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('app-container').style.display = 'block';
+  
+  if (currentUser) {
+    document.getElementById('user-email').textContent = currentUser.email;
+    loadUserSelectedLanes();
+  } else {
+    document.getElementById('user-email').textContent = 'Guest User';
+  }
+}
+
+function switchAuthTab(tab) {
+  const signinTab = document.getElementById('signin-tab');
+  const signupTab = document.getElementById('signup-tab');
+  const signinForm = document.getElementById('signin-form');
+  const signupForm = document.getElementById('signup-form');
+
+  if (tab === 'signin') {
+    signinTab.classList.add('active');
+    signupTab.classList.remove('active');
+    signinForm.style.display = 'block';
+    signupForm.style.display = 'none';
+  } else {
+    signupTab.classList.add('active');
+    signinTab.classList.remove('active');
+    signupForm.style.display = 'block';
+    signinForm.style.display = 'none';
+  }
+}
+
+function setLoading(type, loading) {
+  const button = document.getElementById(`${type}-button`);
+  const spinner = document.getElementById(`${type}-spinner`);
+  
+  if (loading) {
+    button.disabled = true;
+    spinner.style.display = 'inline-block';
+  } else {
+    button.disabled = false;
+    spinner.style.display = 'none';
+  }
+}
+
+function showError(message) {
+  const errorDiv = document.getElementById('error-message');
+  const successDiv = document.getElementById('success-message');
+  
+  errorDiv.textContent = message;
+  errorDiv.style.display = 'block';
+  successDiv.style.display = 'none';
+  
+  setTimeout(() => {
+    errorDiv.style.display = 'none';
+  }, 5000);
+}
+
+function showSuccess(message) {
+  const errorDiv = document.getElementById('error-message');
+  const successDiv = document.getElementById('success-message');
+  
+  successDiv.textContent = message;
+  successDiv.style.display = 'block';
+  errorDiv.style.display = 'none';
+  
+  setTimeout(() => {
+    successDiv.style.display = 'none';
+  }, 5000);
+}
+
+// Page Navigation
+function showPage(page) {
+  currentPage = page;
+  
+  // Update nav buttons
+  document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('active'));
+  document.getElementById(`nav-${page}`).classList.add('active');
+  
+  // Hide all pages
+  document.getElementById('analysis-page').style.display = 'none';
+  document.getElementById('results-page').classList.remove('show');
+  document.getElementById('selected-lanes-page').classList.remove('show');
+  
+  if (page === 'analysis') {
+    document.getElementById('analysis-page').style.display = 'flex';
+  } else if (page === 'selected') {
+    document.getElementById('selected-lanes-page').classList.add('show');
+    displaySelectedLanes();
+  }
+}
+
+function displaySelectedLanes() {
+  const content = document.getElementById('selected-lanes-content');
+  const selectedArray = Array.from(selectedLanesData.values());
+  
+  if (selectedArray.length === 0) {
+    content.innerHTML = `
+      <div class="no-results">
+        <i class="fas fa-bookmark" style="font-size: 2rem; margin-bottom: 1rem; color: var(--muted-foreground);"></i>
+        <h3>No Selected Lanes</h3>
+        <p>You haven't selected any lanes yet. Go back to analysis to find and select co-mingling opportunities.</p>
+        <button class="btn" onclick="showPage('analysis')" style="margin-top: 1rem;">
+          <i class="fas fa-search"></i> Start Analysis
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  // Calculate summary stats
+  const totalLanes = selectedArray.length;
+  const totalPallets = selectedArray.reduce((sum, lane) => sum + (getExistingPalletCount(lane) || 0), 0);
+  const avgOTP = selectedArray.reduce((sum, lane) => sum + (getOTPValue(lane) || 95), 0) / totalLanes;
+  const totalEstimatedRate = selectedArray.reduce((sum, lane) => {
+    const miles = calculateTransitTimeValue(lane);
+    const rate = calculateRateFromCard('53\' Dry Trailer', miles);
+    return sum + rate.totalRate;
+  }, 0);
+
+  content.innerHTML = `
+    <div class="selected-summary">
+      <h2 style="color: var(--card-foreground); font-size: 1rem; margin-bottom: 1rem;">
+        Selected Lanes Summary
+      </h2>
+      
+      <div class="summary-stats">
+        <div class="stat-item">
+          <div class="stat-value">${totalLanes}</div>
+          <div class="stat-label">Total Lanes</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${totalPallets}</div>
+          <div class="stat-label">Total Pallets</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">${avgOTP.toFixed(1)}%</div>
+          <div class="stat-label">Avg OTP Score</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value">$${totalEstimatedRate.toLocaleString()}</div>
+          <div class="stat-label">Est. Total Rate</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom: 1rem;">
+      <button class="btn btn-success" onclick="exportSelectedLanes()" style="margin-right: 0.5rem;">
+        <i class="fas fa-download"></i> Export Selected
+      </button>
+      <button class="btn btn-warning" onclick="clearAllSelectedLanes()">
+        <i class="fas fa-trash"></i> Clear All
+      </button>
+    </div>
+
+    <div class="lane-cards-container">
+      ${generateSelectedLaneCards(selectedArray)}
+    </div>
+  `;
+}
+
+function generateSelectedLaneCards(lanes) {
+  return lanes.map((lane, index) => {
+    const miles = calculateTransitTimeValue(lane);
+    const transitTimeSolo = calculateTransitTime(miles, 'solo');
+    const transitTimeTeam = calculateTransitTime(miles, 'team');
+    const frequency = getLaneFrequency(lane);
+    const daysRun = getLaneDaysRun(lane);
+    const otpDisplay = getOTPDisplay(getOTPValue(lane));
+    const existingPallets = getExistingPalletCount(lane);
+    const availableSpace = MAX_TRUCK_CAPACITY - existingPallets;
+    
+    return `
+      <div class="lane-card selected">
+        <div class="lane-card-header">
+          <div>
+            <div class="lane-title">${lane.customer}</div>
+            <div class="lane-route">${lane.route}</div>
+          </div>
+          <div class="lane-badges">
+            <span class="lane-type-badge lane-type-${lane.type.toLowerCase()}">${lane.type}</span>
+            <span class="match-type-badge match-type-${lane.matchType}">${lane.matchTypeDisplay}</span>
+          </div>
+        </div>
+        
+        <div class="pallet-indicator">
+          <div>
+            <div class="pallet-info-text">Current truck load:</div>
+            <div class="pallet-count">${existingPallets} / 26 pallets</div>
+          </div>
+          <div>
+            <div class="pallet-info-text">Available space:</div>
+            <div class="pallet-count" style="color: ${availableSpace > 10 ? 'var(--success)' : 'var(--warning)'}">
+              ${availableSpace} spots
+            </div>
+          </div>
+        </div>
+        
+        <div class="lane-card-content">
+          <div class="lane-details-grid">
+            <div class="lane-detail">
+              <span class="lane-detail-label">Transit Time</span>
+              <span class="lane-detail-value transit-time">${transitTimeSolo.toFixed(1)}h Solo / ${transitTimeTeam.toFixed(1)}h Team</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">Frequency</span>
+              <span class="lane-detail-value">${frequency}</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">Days Run</span>
+              <span class="lane-detail-value">${daysRun}</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">OTP Score</span>
+              <span class="lane-detail-value otp-score ${otpDisplay.class}">${otpDisplay.text}</span>
+            </div>
+          </div>
+          
+          ${lane.detourInfo ? `<div class="detour-info">${lane.detourInfo}</div>` : ''}
+        </div>
+        
+        <div class="lane-card-actions">
+          <button class="btn btn-small btn-info" onclick="openPricingModalFromSelected(${index})">
+            <i class="fas fa-dollar-sign"></i> View Pricing
+          </button>
+          <button class="btn btn-small btn-warning" onclick="removeSelectedLane('${lane.code}')">
+            <i class="fas fa-times"></i> Remove
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function addToSelectedLanes(opportunity, index) {
+  const key = `${opportunity.type}-${opportunity.code}-${opportunity.matchType}`;
+  selectedLanes.add(index);
+  selectedLanesData.set(key, opportunity);
+  updateSelectedCount();
+}
+
+function removeSelectedLane(laneCode) {
+  // Find and remove the lane
+  const keyToRemove = Array.from(selectedLanesData.keys()).find(key => key.includes(laneCode));
+  if (keyToRemove) {
+    selectedLanesData.delete(keyToRemove);
+  }
+  
+  // Update the selected lanes set
+  selectedLanes = new Set(Array.from(selectedLanes).filter(index => {
+    const opp = currentOpportunities[index];
+    return opp && opp.code !== laneCode;
+  }));
+  
+  updateSelectedCount();
+  displaySelectedLanes();
+}
+
+function clearAllSelectedLanes() {
+  if (confirm('Are you sure you want to clear all selected lanes?')) {
+    selectedLanes.clear();
+    selectedLanesData.clear();
+    updateSelectedCount();
+    displaySelectedLanes();
+  }
+}
+
+function exportSelectedLanes() {
+  const selectedArray = Array.from(selectedLanesData.values());
+  if (selectedArray.length === 0) {
+    alert('No lanes selected to export.');
+    return;
+  }
+
+  const csvData = selectedArray.map(lane => ({
+    Type: lane.type,
+    Customer: lane.customer,
+    Code: lane.code,
+    Route: lane.route,
+    'Match Type': lane.matchTypeDisplay,
+    'Existing Pallets': getExistingPalletCount(lane),
+    'Available Space': MAX_TRUCK_CAPACITY - getExistingPalletCount(lane),
+    Frequency: getLaneFrequency(lane),
+    'Days Run': getLaneDaysRun(lane),
+    'OTP Score': getOTPValue(lane).toFixed(1) + '%'
+  }));
+
+  const csv = Papa.unparse(csvData);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  link.setAttribute('href', url);
+  link.setAttribute('download', 'selected-lanes.csv');
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function updateSelectedCount() {
+  document.getElementById('selected-count').textContent = selectedLanesData.size;
+}
+
+function openPricingModalFromSelected(index) {
+  const selectedArray = Array.from(selectedLanesData.values());
+  const opportunity = selectedArray[index];
+  if (opportunity) {
+    openPricingModal(opportunity, -1); // -1 indicates it's from selected lanes
+  }
+}
+
+// Initialize Google Maps
+function initMap() {
+  map = new google.maps.Map(document.getElementById('map'), {
+    center: { lat: 39.8283, lng: -98.5795 },
+    zoom: 4,
+    styles: getMapStyles()
+  });
+
+  geocoder = new google.maps.Geocoder();
+
+  const pickupInput = document.getElementById('pickup-input');
+  const dropoffInput = document.getElementById('dropoff-input');
+
+  pickupAutocomplete = new google.maps.places.Autocomplete(pickupInput, {
+    types: ['geocode', 'establishment'],
+    componentRestrictions: { country: ['us', 'ca'] }
+  });
+
+  dropoffAutocomplete = new google.maps.places.Autocomplete(dropoffInput, {
+    types: ['geocode', 'establishment'],
+    componentRestrictions: { country: ['us', 'ca'] }
+  });
+
+  pickupAutocomplete.addListener('place_changed', function() {
+    const place = pickupAutocomplete.getPlace();
+    if (place.geometry) {
+      pickupInput.setAttribute('data-lat', place.geometry.location.lat());
+      pickupInput.setAttribute('data-lng', place.geometry.location.lng());
+      pickupInput.setAttribute('data-address', place.formatted_address);
+    }
+  });
+
+  dropoffAutocomplete.addListener('place_changed', function() {
+    const place = dropoffAutocomplete.getPlace();
+    if (place.geometry) {
+      dropoffInput.setAttribute('data-lat', place.geometry.location.lat());
+      dropoffInput.setAttribute('data-lng', place.geometry.location.lng());
+      dropoffInput.setAttribute('data-address', place.formatted_address);
+    }
+  });
+
+  if (window.Stripe && CONFIG.STRIPE_PUBLIC_KEY) {
+    stripe = Stripe(CONFIG.STRIPE_PUBLIC_KEY);
+  }
+}
+
+function initResultsMap() {
+  resultsMap = new google.maps.Map(document.getElementById('results-map'), {
+    center: { lat: 39.8283, lng: -98.5795 },
+    zoom: 4,
+    styles: getMapStyles()
+  });
+}
+
+function getMapStyles() {
+  return [
+    {
+      elementType: 'geometry',
+      stylers: [{ color: '#000000' }]
+    },
+    {
+      elementType: 'labels.text.stroke',
+      stylers: [{ color: '#000000' }]
+    },
+    {
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#FFFFFF' }]
+    },
+    {
+      featureType: 'administrative',
+      elementType: 'geometry.stroke',
+      stylers: [{ color: '#262626' }]
+    },
+    {
+      featureType: 'administrative.country',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#FFFFFF' }]
+    },
+    {
+      featureType: 'administrative.province',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#888888' }]
+    },
+    {
+      featureType: 'road',
+      elementType: 'geometry',
+      stylers: [{ color: '#111111' }]
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'geometry',
+      stylers: [{ color: '#1a1a1a' }]
+    },
+    {
+      featureType: 'road.highway',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#FFFFFF' }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'geometry',
+      stylers: [{ color: '#000000' }]
+    },
+    {
+      featureType: 'water',
+      elementType: 'labels.text.fill',
+      stylers: [{ color: '#888888' }]
+    }
+  ];
+}
+
+// Calculate rate based on rate card
+function calculateRateFromCard(equipmentType, miles, additionalStops = 0) {
+  const rateInfo = RATE_CARD[equipmentType] || RATE_CARD['53\' Dry Trailer'];
+  const totalRate = rateInfo.baseFee + (rateInfo.perMile * miles) + (rateInfo.perStop * additionalStops);
+  const rpm = totalRate / miles;
+  
+  return {
+    totalRate: Math.round(totalRate),
+    rpm: rpm.toFixed(2),
+    baseFee: rateInfo.baseFee,
+    mileageCharge: Math.round(rateInfo.perMile * miles),
+    stopCharge: rateInfo.perStop * additionalStops
+  };
+}
+
+function getAvailableEquipment(miles, palletCount) {
+  const availableEquipment = [];
+  
+  Object.entries(EQUIPMENT_CONFIG).forEach(([equipmentType, config]) => {
+    if (miles <= config.maxMiles && palletCount <= config.maxPallets) {
+      availableEquipment.push({
+        type: equipmentType,
+        config: config,
+        suitable: true
+      });
+    } else {
+      availableEquipment.push({
+        type: equipmentType,
+        config: config,
+        suitable: false
+      });
+    }
+  });
+  
+  return availableEquipment;
+}
+
+function getExistingPalletCount(opportunity) {
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    return lane?.Existing_Pallets || 0;
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    return lane?.Existing_Pallets || 0;
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    return lane?.Existing_Pallets || 0;
+  }
+  return 0;
+}
+
+// Format transit time display
+function formatTransitTime(hours) {
+  if (hours < 24) {
+    return `${hours.toFixed(1)}h`;
+  } else {
+    const days = Math.floor(hours / 24);
+    const remainingHours = hours % 24;
+    return `${days}d ${remainingHours.toFixed(1)}h`;
+  }
+}
+
+function getOTPDisplay(otpPercentage) {
+  if (!otpPercentage || otpPercentage < 95) {
+    return { text: 'Data not available', class: 'unknown' };
+  } else if (otpPercentage >= 98) {
+    return { text: `${otpPercentage.toFixed(1)}%`, class: 'excellent' };
+  } else if (otpPercentage >= 95) {
+    return { text: `${otpPercentage.toFixed(1)}%`, class: 'good' };
+  } else {
+    return { text: `${otpPercentage.toFixed(1)}%`, class: 'poor' };
+  }
+}
+
+// Search and Sort Functions
+function searchOpportunities(searchTerm) {
+  if (!searchTerm.trim()) {
+    filteredOpportunities = [...currentOpportunities];
+  } else {
+    const term = searchTerm.toLowerCase();
+    filteredOpportunities = currentOpportunities.filter(opp => {
+      const routeParts = opp.route.toLowerCase();
+      return routeParts.includes(term) ||
+             opp.customer.toLowerCase().includes(term) ||
+             opp.code.toLowerCase().includes(term) ||
+             opp.type.toLowerCase().includes(term) ||
+             opp.matchTypeDisplay.toLowerCase().includes(term);
+    });
+  }
+  
+  // Apply filters
+  applyFilters();
+}
+
+function applyFilters() {
+  let opportunities = filteredOpportunities.length > 0 ? filteredOpportunities : currentOpportunities;
+  
+  // Filter by available space
+  if (selectedAvailableSpace.length > 0) {
+    opportunities = opportunities.filter(opp => {
+      const existingPallets = getExistingPalletCount(opp);
+      const availableSpace = MAX_TRUCK_CAPACITY - existingPallets;
+      
+      return selectedAvailableSpace.some(range => {
+        switch(range) {
+          case '1-5': return availableSpace >= 1 && availableSpace <= 5;
+          case '6-10': return availableSpace >= 6 && availableSpace <= 10;
+          case '11-15': return availableSpace >= 11 && availableSpace <= 15;
+          case '16+': return availableSpace >= 16;
+          default: return false;
+        }
+      });
+    });
+  }
+  
+  // Filter by frequency
+  if (selectedFrequencies.length > 0) {
+    opportunities = opportunities.filter(opp => {
+      const frequency = getLaneFrequency(opp);
+      return selectedFrequencies.includes(frequency);
+    });
+  }
+  
+  if (currentSortField) {
+    sortOpportunities(currentSortField, currentSortDirection, opportunities);
+  } else {
+    displaySearchResults(opportunities);
+  }
+}
+
+function sortOpportunities(field, direction = 'asc', opportunities = null) {
+  currentSortField = field;
+  currentSortDirection = direction;
+  
+  document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active'));
+  const activeBtn = document.querySelector(`[onclick*="sortOpportunities('${field}', '${direction}')"]`);
+  if (activeBtn) activeBtn.classList.add('active');
+  
+  const oppsToSort = opportunities || (filteredOpportunities.length > 0 ? filteredOpportunities : currentOpportunities);
+  
+  oppsToSort.sort((a, b) => {
+    let aVal, bVal;
+    
+    switch (field) {
+      case 'transit_time':
+        aVal = calculateTransitTimeValue(a);
+        bVal = calculateTransitTimeValue(b);
+        break;
+      case 'frequency':
+        aVal = getFrequencyValue(a);
+        bVal = getFrequencyValue(b);
+        break;
+      case 'otp':
+        aVal = getOTPValue(a);
+        bVal = getOTPValue(b);
+        break;
+      case 'distance':
+        aVal = a.distance || 0;
+        bVal = b.distance || 0;
+        break;
+      case 'pallets':
+        aVal = getExistingPalletCount(a);
+        bVal = getExistingPalletCount(b);
+        break;
+      case 'days_run':
+        aVal = getDaysRunValue(a);
+        bVal = getDaysRunValue(b);
+        break;
+      case 'customer':
+        aVal = a.customer.toLowerCase();
+        bVal = b.customer.toLowerCase();
+        return direction === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      default:
+        return 0;
+    }
+    
+    if (direction === 'asc') {
+      return aVal - bVal;
+    } else {
+      return bVal - aVal;
+    }
+  });
+  
+  displaySearchResults(oppsToSort);
+}
+
+function getDaysRunValue(opportunity) {
+  const daysRun = getLaneDaysRun(opportunity);
+  if (daysRun.includes('Sun')) return 7;
+  if (daysRun.includes('Sat')) return 6;
+  if (daysRun.includes('Fri')) return 5;
+  return 5;
+}
+
+function displaySearchResults(opportunities) {
+  const exactMatches = opportunities.filter(opp => opp.matchType === 'exact');
+  const backhaulMatches = opportunities.filter(opp => opp.matchType === 'backhaul');
+  const partialMatches = opportunities.filter(opp => 
+    opp.matchType === 'pickup-detour' || opp.matchType === 'dropoff-detour'
+  );
+  
+  const exactTab = document.querySelector('[onclick*="exact-matches"]');
+  const backhaulTab = document.querySelector('[onclick*="backhaul-matches"]');
+  const partialTab = document.querySelector('[onclick*="partial-matches"]');
+  
+  if (exactTab) exactTab.textContent = `Exact Matches (${exactMatches.length})`;
+  if (backhaulTab) backhaulTab.textContent = `Backhaul (${backhaulMatches.length})`;
+  if (partialTab) partialTab.textContent = `Partial Matches (${partialMatches.length})`;
+  
+  const exactContent = document.getElementById('exact-matches');
+  const backhaulContent = document.getElementById('backhaul-matches');
+  const partialContent = document.getElementById('partial-matches');
+  
+  if (exactContent) exactContent.innerHTML = generateOpportunityCards(exactMatches, 'exact');
+  if (backhaulContent) backhaulContent.innerHTML = generateOpportunityCards(backhaulMatches, 'backhaul');
+  if (partialContent) partialContent.innerHTML = generateOpportunityCards(partialMatches, 'partial');
+}
+
+function calculateTransitTimeValue(opportunity) {
+  let miles = 0;
+  
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    if (lane) {
+      miles = calculateDistance(
+        parseFloat(lane['Pickup_Latitude']),
+        parseFloat(lane['Pickup_Longitude']),
+        parseFloat(lane['Dropoff_Latitude']),
+        parseFloat(lane['Dropoff_Longitude'])
+      );
+    }
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    if (lane) {
+      miles = calculateDistance(
+        parseFloat(lane['Origin_Latitude']),
+        parseFloat(lane['Origin_Longitude']),
+        parseFloat(lane['Destination_Latitude']),
+        parseFloat(lane['Destination_Longitude'])
+      );
+    }
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    if (lane) {
+      miles = calculateDistance(
+        parseFloat(lane['Pickup_Latitude']),
+        parseFloat(lane['Pickup_Longitude']),
+        parseFloat(lane['Dropoff_Latitude']),
+        parseFloat(lane['Dropoff_Longitude'])
+      );
+    }
+  }
+  
+  return miles;
+}
+
+function getFrequencyValue(opportunity) {
+  const freq = getLaneFrequency(opportunity);
+  const frequencyValues = {
+    'Daily': 7,
+    'Weekly': 1,
+    'Bi-weekly': 0.5,
+    'Monthly': 0.25
+  };
+  return frequencyValues[freq] || 0;
+}
+
+function getOTPValue(opportunity) {
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    return lane?.['OTP_Percentage'] || 0;
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    return lane?.['OTP_Percentage'] || 0;
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    return lane?.['OTP_Percentage'] || 0;
+  }
+  return 0;
+}
+
+function getLaneFrequency(opportunity) {
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    return lane?.['Frequency'] || 'N/A';
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    return lane?.['Frequency'] || 'N/A';
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    return lane?.['Frequency'] || 'N/A';
+  }
+  return 'N/A';
+}
+
+function getLaneDaysRun(opportunity) {
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    return lane?.['Days_Run'] || 'N/A';
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    return lane?.['Days_Run'] || 'N/A';
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    return lane?.['Days_Run'] || 'N/A';
+  }
+  return 'N/A';
+}
+
+// Equipment selection functions
+function selectEquipment(equipmentType) {
+  currentSelectedEquipment = equipmentType;
+  
+  // Update UI
+  document.querySelectorAll('.equipment-option').forEach(option => {
+    option.classList.remove('selected');
+  });
+  
+  const selectedOption = document.querySelector(`[data-equipment="${equipmentType}"]`);
+  if (selectedOption) {
+    selectedOption.classList.add('selected');
+  }
+  
+  // Update pallet selector based on equipment
+  const existingPallets = getExistingPalletCount(currentLaneForPricing?.opportunity || {});
+  const equipmentConfig = EQUIPMENT_CONFIG[equipmentType];
+  const availableSpots = equipmentConfig.maxPallets - existingPallets;
+  
+  // Reset pallet count if exceeds new max
+  if (selectedPalletCount > availableSpots) {
+    selectedPalletCount = 0;
+  }
+  
+  // Update pricing display
+  updatePricingDisplay();
+  
+  // Reinitialize pallet selector with new max
+  const miles = calculateTransitTimeValue(currentLaneForPricing?.opportunity || {});
+  const rate = calculateRateFromCard(equipmentType, miles);
+  const palletRate = Math.round(rate.totalRate / equipmentConfig.maxPallets);
+  
+  initializePalletSelector(existingPallets, availableSpots, palletRate, equipmentType);
+}
+
+function updatePricingDisplay() {
+  if (!currentLaneForPricing) return;
+  
+  const opportunity = currentLaneForPricing.opportunity;
+  const miles = calculateTransitTimeValue(opportunity);
+  const equipmentConfig = EQUIPMENT_CONFIG[currentSelectedEquipment];
+  
+  // Calculate rates
+  const soloRate = calculateRateFromCard(currentSelectedEquipment, miles);
+  const teamRate = {
+    totalRate: soloRate.totalRate + 550,
+    rpm: (soloRate.totalRate + 550) / miles,
+    baseFee: soloRate.baseFee,
+    mileageCharge: soloRate.mileageCharge,
+    teamSurcharge: 550
+  };
+  
+  // Update rate breakdown
+  const breakdownDiv = document.getElementById('pricing-rate-breakdown');
+  if (currentDriverType) {
+    // Show simplified view when driver type is selected
+    const selectedRate = currentDriverType === 'solo' ? soloRate : teamRate;
+    const perPalletRate = Math.round(selectedRate.totalRate / equipmentConfig.maxPallets);
+    
+    breakdownDiv.innerHTML = `
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem;">
+        <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.75rem;">
+          ${currentDriverType === 'solo' ? 'Solo Driver' : 'Team Drivers'} Pricing - ${currentSelectedEquipment}
+        </h4>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div>
+            <div style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;">Per Pallet Rate</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--warp-accent);">$${perPalletRate}</div>
+            <div style="font-size: 0.625rem; color: var(--muted-foreground);">per pallet</div>
+          </div>
+          
+          <div>
+            <div style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.5rem;">Full Truckload</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--warp-accent);">$${selectedRate.totalRate}</div>
+            <div style="font-size: 0.625rem; color: var(--muted-foreground);">${equipmentConfig.maxPallets} pallets</div>
+          </div>
+        </div>
+        
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+          <button class="btn btn-small" onclick="resetPricingView()" style="width: 100%;">
+            <i class="fas fa-arrow-left"></i> Change Options
+          </button>
+        </div>
+      </div>
+    `;
+  } else {
+    // Show full breakdown
+    breakdownDiv.innerHTML = `
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem;">
+        <h4 style="color: var(--card-foreground); margin-bottom: 0.75rem; font-size: 0.75rem;">Rate Breakdown (${Math.round(miles)} miles)</h4>
+        
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div style="margin-bottom: 0.75rem;">
+            <strong style="font-size: 0.75rem;">Solo Driver</strong>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.6875rem;">
+              <span>Base Fee:</span>
+              <span>$${soloRate.baseFee}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 0.25rem; font-weight: 700; font-size: 0.75rem;">
+              <span>Total:</span>
+              <span>$${soloRate.totalRate}</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.625rem; color: var(--muted-foreground);">
+              Per Pallet: $${Math.round(soloRate.totalRate / equipmentConfig.maxPallets)}
+            </div>
+          </div>
+          
+          <div style="margin-bottom: 0.75rem;">
+            <strong style="font-size: 0.75rem;">Team Drivers</strong>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; font-size: 0.6875rem;">
+              <span>Base + Team:</span>
+              <span>$${teamRate.baseFee + teamRate.teamSurcharge}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 1px solid var(--border); padding-top: 0.25rem; font-weight: 700; font-size: 0.75rem;">
+              <span>Total:</span>
+              <span>$${teamRate.totalRate}</span>
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.625rem; color: var(--muted-foreground);">
+              Per Pallet: $${Math.round(teamRate.totalRate / equipmentConfig.maxPallets)}
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  // Update pricing options
+  const optionsDiv = document.getElementById('pricing-options');
+  optionsDiv.innerHTML = `
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem;">
+      <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.375rem;">Solo Driver</div>
+      <div style="font-size: 1.5rem; font-weight: 700; color: var(--warp-accent); margin-bottom: 0.375rem;">$${soloRate.totalRate}</div>
+      <div style="font-size: 0.6875rem; color: var(--muted-foreground); margin-bottom: 0.75rem;">full truck (${equipmentConfig.maxPallets} pallets)</div>
+      <button class="btn btn-info" onclick="selectPricingOption('solo', ${soloRate.totalRate})" style="width: 100%;">
+        <i class="fas fa-user"></i> Select Solo Driver
+      </button>
+    </div>
+    
+    <div style="background: var(--card); border: 2px solid var(--warp-accent); border-radius: var(--radius); padding: 1rem; position: relative;">
+      <div style="position: absolute; top: -8px; left: 50%; transform: translateX(-50%); background: var(--warp-accent); color: var(--background); padding: 0.1875rem 0.75rem; border-radius: 9999px; font-size: 0.625rem; font-weight: 700; letter-spacing: 0.025em;">FASTER</div>
+      <div style="font-size: 0.8125rem; font-weight: 600; margin-bottom: 0.375rem;">Team Drivers</div>
+      <div style="font-size: 1.5rem; font-weight: 700; color: var(--warp-accent); margin-bottom: 0.375rem;">$${teamRate.totalRate}</div>
+      <div style="font-size: 0.6875rem; color: var(--muted-foreground); margin-bottom: 0.75rem;">full truck (${equipmentConfig.maxPallets} pallets) + $550</div>
+      <button class="btn btn-success" onclick="selectPricingOption('team', ${teamRate.totalRate})" style="width: 100%;">
+        <i class="fas fa-users"></i> Select Team Drivers
+      </button>
+    </div>
+  `;
+}
+
+function resetPricingView() {
+  currentDriverType = null;
+  updatePricingDisplay();
+}
+
+// Enhanced pallet selector functions
+function initializePalletSelector(existingPallets, availableSpots, palletRate, selectedEquipment = '53\' Dry Trailer') {
+  selectedPalletCount = 0;
+  currentPalletRate = palletRate;
+  currentSelectedEquipment = selectedEquipment;
+  
+  const maxCapacity = EQUIPMENT_CONFIG[selectedEquipment]?.maxPallets || 26;
+  const actualAvailableSpots = Math.min(availableSpots, maxCapacity - existingPallets);
+  
+  const palletVisual = document.getElementById('pallet-visual');
+  palletVisual.innerHTML = '';
+  
+  // Adjust grid columns based on equipment type
+  let gridColumns = 13;
+  if (selectedEquipment === 'Cargo Van') {
+    gridColumns = 2;
+  } else if (selectedEquipment.includes('Box')) {
+    gridColumns = 13;
+  }
+  
+  palletVisual.style.gridTemplateColumns = `repeat(${gridColumns}, 1fr)`;
+  
+  for (let i = 0; i < maxCapacity; i++) {
+    const spot = document.createElement('div');
+    spot.className = 'pallet-spot';
+    spot.style.cssText = `
+      width: 100%;
+      aspect-ratio: 1;
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) - 4px);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.625rem;
+      font-weight: 700;
+    `;
+    
+    if (i < existingPallets) {
+      spot.classList.add('occupied');
+      spot.textContent = 'X';
+      spot.title = 'Occupied by other customer';
+      spot.style.background = 'var(--muted)';
+      spot.style.color = 'var(--muted-foreground)';
+      spot.style.cursor = 'not-allowed';
+    } else if (i < existingPallets + actualAvailableSpots) {
+      spot.classList.add('available');
+      spot.setAttribute('data-index', i);
+      spot.onclick = () => togglePalletSpot(i);
+      spot.style.background = 'var(--card)';
+      spot.style.borderColor = 'var(--success)';
+    } else {
+      spot.classList.add('occupied');
+      spot.style.opacity = '0.3';
+      spot.title = `Not available for ${selectedEquipment}`;
+      spot.style.background = 'var(--muted)';
+      spot.style.cursor = 'not-allowed';
+    }
+    
+    palletVisual.appendChild(spot);
+  }
+  
+  updatePalletDisplay();
+}
+
+function togglePalletSpot(index) {
+  const spot = document.querySelector(`[data-index="${index}"]`);
+  if (!spot || spot.classList.contains('occupied')) return;
+
+  if (spot.classList.contains('selected')) {
+    spot.classList.remove('selected');
+    spot.style.background = 'var(--card)';
+    spot.style.color = 'var(--foreground)';
+    selectedPalletCount = Math.max(0, selectedPalletCount - 1);
+  } else {
+    spot.classList.add('selected');
+    spot.style.background = 'var(--warp-yellow)';
+    spot.style.color = 'var(--background)';
+    selectedPalletCount++;
+  }
+
+  updatePalletDisplay();
+}
+
+function increasePallets() {
+  const equipmentConfig = EQUIPMENT_CONFIG[currentSelectedEquipment] || EQUIPMENT_CONFIG['53\' Dry Trailer'];
+  const existingPallets = document.querySelectorAll('.pallet-spot.occupied').length;
+  const maxAvailable = equipmentConfig.maxPallets - existingPallets;
+
+  if (selectedPalletCount < maxAvailable) {
+    selectedPalletCount++;
+    updatePalletSelection();
+  }
+}
+
+function decreasePallets() {
+  if (selectedPalletCount > 0) {
+    selectedPalletCount--;
+    updatePalletSelection();
+  }
+}
+
+function updatePalletSelection() {
+  const availableSpots = document.querySelectorAll('.pallet-spot.available');
+
+  availableSpots.forEach((spot, index) => {
+    if (index < selectedPalletCount) {
+      spot.classList.add('selected');
+      spot.style.background = 'var(--warp-yellow)';
+      spot.style.color = 'var(--background)';
+    } else {
+      spot.classList.remove('selected');
+      spot.style.background = 'var(--card)';
+      spot.style.color = 'var(--foreground)';
+    }
+  });
+
+  updatePalletDisplay();
+}
+
+function updatePalletDisplay() {
+  document.getElementById('pallet-quantity').textContent = selectedPalletCount;
+  document.getElementById('selected-pallet-rate').textContent = `$${selectedPalletCount * currentPalletRate}`;
+
+  const equipmentConfig = EQUIPMENT_CONFIG[currentSelectedEquipment] || EQUIPMENT_CONFIG['53\' Dry Trailer'];
+  const existingPallets = document.querySelectorAll('.pallet-spot.occupied').length;
+  const maxAvailable = equipmentConfig.maxPallets - existingPallets;
+
+  const decreaseBtn = document.getElementById('decrease-btn');
+  const increaseBtn = document.getElementById('increase-btn');
+
+  if (decreaseBtn) {
+    decreaseBtn.disabled = selectedPalletCount <= 0;
+    decreaseBtn.style.opacity = selectedPalletCount <= 0 ? '0.5' : '1';
+  }
+
+  if (increaseBtn) {
+    increaseBtn.disabled = selectedPalletCount >= maxAvailable;
+    increaseBtn.style.opacity = selectedPalletCount >= maxAvailable ? '0.5' : '1';
+  }
+
+  if (selectedPalletCount > 0 || currentDriverType) {
+    document.getElementById('payment-section').style.display = 'block';
+  } else {
+    document.getElementById('payment-section').style.display = 'none';
+  }
+}
+
+// Pricing Modal Functions
+async function openPricingModal(opportunity, index) {
+  currentLaneForPricing = { opportunity, index };
+  currentDriverType = null;
+  currentPricingType = null;
+
+  // Track interaction
+  await trackLaneInteraction(opportunity, 'pricing_viewed');
+
+  const modal = document.getElementById('pricing-modal');
+  const detailsDiv = document.getElementById('pricing-details');
+
+  let laneData = null;
+  if (opportunity.type === 'Historical') {
+    laneData = historicalLanes.find(l => l['Code'] === opportunity.code);
+  } else if (opportunity.type === 'LTL') {
+    laneData = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+  } else if (opportunity.type === 'Dedicated') {
+    laneData = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+  }
+
+  let miles = 0;
+  if (opportunity.type === 'Historical' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Pickup_Latitude']),
+      parseFloat(laneData['Pickup_Longitude']),
+      parseFloat(laneData['Dropoff_Latitude']),
+      parseFloat(laneData['Dropoff_Longitude'])
+    );
+  } else if (opportunity.type === 'LTL' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Origin_Latitude']),
+      parseFloat(laneData['Origin_Longitude']),
+      parseFloat(laneData['Destination_Latitude']),
+      parseFloat(laneData['Destination_Longitude'])
+    );
+  } else if (opportunity.type === 'Dedicated' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Pickup_Latitude']),
+      parseFloat(laneData['Pickup_Longitude']),
+      parseFloat(laneData['Dropoff_Latitude']),
+      parseFloat(laneData['Dropoff_Longitude'])
+    );
+  }
+
+  const transitTimeSolo = calculateTransitTime(miles, 'solo');
+  const transitTimeTeam = calculateTransitTime(miles, 'team');
+  const frequency = getLaneFrequency(opportunity);
+  const daysRun = getLaneDaysRun(opportunity);
+  const otpDisplay = getOTPDisplay(getOTPValue(opportunity));
+  const existingPallets = getExistingPalletCount(opportunity);
+  const availableSpots = MAX_TRUCK_CAPACITY - existingPallets;
+
+  detailsDiv.innerHTML = `
+    <div style="background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; margin-bottom: 1.5rem;">
+      <h3 style="color: var(--warp-accent); margin-bottom: 0.75rem; font-size: 0.875rem;">${opportunity.type} Lane - ${opportunity.code}</h3>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <div>
+          <strong>Route:</strong><br>
+          <span style="color: var(--muted-foreground); font-size: 0.75rem;">${opportunity.route}</span>
+        </div>
+        <div>
+          <strong>Match Type:</strong><br>
+          <span class="match-type-badge match-type-${opportunity.matchType}">${opportunity.matchTypeDisplay}</span>
+        </div>
+        <div>
+          <strong>Transit Time:</strong><br>
+          <span style="color: var(--warp-yellow); font-size: 0.75rem;">${transitTimeSolo.toFixed(1)}h Solo / ${transitTimeTeam.toFixed(1)}h Team</span>
+        </div>
+        <div>
+          <strong>Distance:</strong><br>
+          <span style="color: var(--muted-foreground); font-size: 0.75rem;">${Math.round(miles)} miles</span>
+        </div>
+        <div>
+          <strong>Frequency:</strong><br>
+          <span style="color: var(--muted-foreground); font-size: 0.75rem;">${frequency}</span>
+        </div>
+        <div>
+          <strong>Days Run:</strong><br>
+          <span style="color: var(--muted-foreground); font-size: 0.75rem;">${daysRun}</span>
+        </div>
+        <div>
+          <strong>OTP Score:</strong><br>
+          <span class="otp-score ${otpDisplay.class}" style="font-size: 0.75rem;">${otpDisplay.text}</span>
+        </div>
+        <div>
+          <strong>Current Load:</strong><br>
+          <span style="color: var(--warp-yellow); font-size: 0.75rem;">${existingPallets} / 26 pallets</span>
+        </div>
+      </div>
+      ${opportunity.detourInfo ? `<div class="detour-info" style="margin-top: 0.75rem;">${opportunity.detourInfo}</div>` : ''}
+    </div>
+  `;
+
+  // Initialize equipment selector
+  const equipmentDiv = document.getElementById('equipment-options');
+  const availableEquipment = getAvailableEquipment(miles, 1); // Start with 1 pallet
+  
+  equipmentDiv.innerHTML = availableEquipment.map(eq => `
+    <div class="equipment-option ${eq.suitable ? '' : 'disabled'}" 
+         data-equipment="${eq.type}" 
+         onclick="${eq.suitable ? `selectEquipment('${eq.type}')` : ''}">
+      <div class="equipment-icon">
+        <i class="fas ${eq.config.icon}"></i>
+      </div>
+      <div class="equipment-name">${eq.type}</div>
+      <div class="equipment-capacity">Max ${eq.config.maxPallets} pallets</div>
+    </div>
+  `).join('');
+
+  // Select 53' Dry Trailer by default
+  selectEquipment('53\' Dry Trailer');
+
+  modal.classList.add('show');
+}
+
+function selectPricingOption(type, rate) {
+  currentDriverType = type;
+  currentPricingType = 'full-truck';
+  
+  if (currentLaneForPricing) {
+    currentLaneForPricing.pricingType = type;
+    currentLaneForPricing.rate = rate;
+    currentLaneForPricing.equipmentType = currentSelectedEquipment;
+    currentLaneForPricing.palletCount = EQUIPMENT_CONFIG[currentSelectedEquipment].maxPallets;
+  }
+
+  updatePricingDisplay();
+  document.getElementById('payment-section').style.display = 'block';
+  document.getElementById('payment-section').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function closePricingModal() {
+  document.getElementById('pricing-modal').classList.remove('show');
+  currentLaneForPricing = null;
+  selectedPalletCount = 0;
+  currentPalletRate = 0;
+  currentDriverType = null;
+  currentPricingType = null;
+}
+
+async function submitBooking(bookingType) {
+  const contactName = document.getElementById('contact-name').value.trim();
+  const companyName = document.getElementById('company-name').value.trim();
+  const contactEmail = document.getElementById('contact-email').value.trim();
+  const contactPhone = document.getElementById('contact-phone').value.trim();
+  const specialRequirements = document.getElementById('special-requirements').value.trim();
+
+  if (!contactName || !contactEmail || !contactPhone) {
+    alert('Please fill in all required contact information.');
+    return;
+  }
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(contactEmail)) {
+    alert('Please enter a valid email address.');
+    return;
+  }
+
+  if (!currentLaneForPricing) {
+    alert('Please select a pricing option first.');
+    return;
+  }
+
+  let pricingType, rate, palletCount, equipmentType;
+  if (currentDriverType) {
+    pricingType = currentDriverType;
+    rate = currentLaneForPricing.rate;
+    palletCount = currentLaneForPricing.palletCount;
+    equipmentType = currentLaneForPricing.equipmentType || currentSelectedEquipment;
+  } else {
+    if (selectedPalletCount === 0) {
+      alert('Please select at least one pallet.');
+      return;
+    }
+    pricingType = 'pallet';
+    rate = selectedPalletCount * currentPalletRate;
+    palletCount = selectedPalletCount;
+    equipmentType = currentSelectedEquipment;
+  }
+
+  const bookingData = {
+    lane: currentLaneForPricing.opportunity,
+    pricingType: pricingType,
+    rate: rate,
+    palletCount: palletCount,
+    equipmentType: equipmentType,
+    contact: {
+      name: contactName,
+      company: companyName,
+      email: contactEmail,
+      phone: contactPhone,
+      requirements: specialRequirements
+    },
+    bookingType: bookingType,
+    timestamp: new Date().toISOString()
+  };
+
+  // Save booking to database
+  const savedBooking = await saveBooking(bookingData);
+
+  // Track interaction
+  await trackLaneInteraction(currentLaneForPricing.opportunity, 'booked', { 
+    booking: bookingData 
+  });
+
+  if (bookingType === 'instant') {
+    alert(`
+      Instant booking initiated!
+      
+      Lane: ${bookingData.lane.code}
+      Equipment: ${bookingData.equipmentType}
+      Type: ${bookingData.pricingType === 'team' ? 'Team Drivers' : bookingData.pricingType === 'solo' ? 'Solo Driver' : `${bookingData.palletCount} Pallets`}
+      Rate: $${bookingData.rate}
+      
+      Booking ID: ${savedBooking?.id || 'GUEST_' + Date.now()}
+      
+      You will be redirected to payment processing.
+      
+      (In production, this would integrate with Stripe for payment processing)
+    `);
+  } else {
+    alert(`
+      Sales meeting requested!
+      
+      Lane: ${bookingData.lane.code}
+      Equipment: ${bookingData.equipmentType}
+      Type: ${bookingData.pricingType === 'team' ? 'Team Drivers' : bookingData.pricingType === 'solo' ? 'Solo Driver' : `${bookingData.palletCount} Pallets`}
+      Contact: ${contactName}
+      Email: ${contactEmail}
+      
+      Booking ID: ${savedBooking?.id || 'GUEST_' + Date.now()}
+      
+      Our sales team will contact you within 24 hours to schedule a meeting.
+    `);
+  }
+
+  console.log('Booking data:', bookingData);
+  closePricingModal();
+}
+
+// Truck Fill Functions
+function openTruckFillModal(opportunity, laneData) {
+  currentLaneForTruckFill = { opportunity, laneData };
+
+  if (typeof laneData === 'string') {
+    try {
+      currentLaneForTruckFill.laneData = JSON.parse(laneData.replace(/&quot;/g, '"'));
+    } catch (e) {
+      currentLaneForTruckFill.laneData = null;
+    }
+  }
+
+  existingPallets = getExistingPalletCount(opportunity);
+
+  const existingPalletsInfo = document.getElementById('existing-pallets-info');
+  const existingPalletsCount = document.getElementById('existing-pallets-count');
+
+  if (existingPallets > 0) {
+    existingPalletsInfo.style.display = 'block';
+    existingPalletsCount.textContent = `${existingPallets} pallets`;
+  } else {
+    existingPalletsInfo.style.display = 'none';
+  }
+
+  pallets = [];
+
+  document.getElementById('truck-fill-modal').classList.add('show');
+  updateTruckVisualization();
+  updatePalletList();
+  updateTruckStats();
+}
+
+function closeTruckFillModal() {
+  document.getElementById('truck-fill-modal').classList.remove('show');
+  pallets = [];
+  existingPallets = 0;
+  updateTruckVisualization();
+  updatePalletList();
+}
+
+function addPallet() {
+  const description = document.getElementById('pallet-description').value.trim();
+  const weight = parseInt(document.getElementById('pallet-weight').value) || 0;
+  const dimensions = document.getElementById('pallet-dimensions').value.trim();
+  const quantity = parseInt(document.getElementById('pallet-quantity-input').value) || 1;
+
+  if (!description || weight <= 0 || quantity <= 0) {
+    alert('Please fill in all required fields with valid values');
+    return;
+  }
+
+  const totalPallets = existingPallets + pallets.length + quantity;
+  if (totalPallets > MAX_TRUCK_CAPACITY) {
+    alert(`Cannot add ${quantity} pallets. Only ${MAX_TRUCK_CAPACITY - existingPallets - pallets.length} spots remaining.`);
+    return;
+  }
+
+  const totalWeight = pallets.reduce((sum, pallet) => sum + pallet.weight, 0);
+  if (totalWeight + (weight * quantity) > MAX_TRUCK_WEIGHT) {
+    alert(`Cannot add pallets. Would exceed weight limit of ${MAX_TRUCK_WEIGHT.toLocaleString()} lbs.`);
+    return;
+  }
+
+  for (let i = 0; i < quantity; i++) {
+    pallets.push({
+      id: Date.now() + i,
+      description,
+      weight,
+      dimensions,
+      position: pallets.length
+    });
+  }
+
+  document.getElementById('pallet-description').value = '';
+  document.getElementById('pallet-weight').value = '';
+  document.getElementById('pallet-dimensions').value = '';
+  document.getElementById('pallet-quantity-input').value = '1';
+
+  updateTruckVisualization();
+  updatePalletList();
+  updateTruckStats();
+}
+
+function removePallet(palletId) {
+  pallets = pallets.filter(pallet => pallet.id !== palletId);
+  pallets.forEach((pallet, index) => {
+    pallet.position = index;
+  });
+  updateTruckVisualization();
+  updatePalletList();
+  updateTruckStats();
+}
+
+function updateTruckVisualization() {
+  const svg = document.getElementById('truck-svg');
+  const capacityFill = document.getElementById('capacity-fill');
+  const capacityText = document.getElementById('capacity-text');
+
+  const existingPalletRects = svg.querySelectorAll('.pallet-rect');
+  existingPalletRects.forEach(rect => rect.remove());
+
+  const truckBedX = 60;
+  const truckBedY = 110;
+  const truckBedWidth = 380;
+  const truckBedHeight = 130;
+
+  const palletsPerRow = 13;
+  const rows = 2;
+  const palletWidth = truckBedWidth / palletsPerRow;
+  const palletHeight = truckBedHeight / rows;
+
+  for (let i = 0; i < existingPallets; i++) {
+    const row = Math.floor(i / palletsPerRow);
+    const col = i % palletsPerRow;
+    
+    const x = truckBedX + (col * palletWidth) + 2;
+    const y = truckBedY + (row * palletHeight) + 2;
+    const width = palletWidth - 4;
+    const height = palletHeight - 4;
+    
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', y);
+    rect.setAttribute('width', width);
+    rect.setAttribute('height', height);
+    rect.setAttribute('fill', '#666666');
+    rect.setAttribute('stroke', '#333');
+    rect.setAttribute('stroke-width', '1');
+    rect.setAttribute('class', 'pallet-rect');
+    rect.setAttribute('opacity', '0.6');
+    
+    svg.appendChild(rect);
+  }
+
+  pallets.forEach((pallet, index) => {
+    const actualPosition = existingPallets + index;
+    const row = Math.floor(actualPosition / palletsPerRow);
+    const col = actualPosition % palletsPerRow;
+    
+    const x = truckBedX + (col * palletWidth) + 2;
+    const y = truckBedY + (row * palletHeight) + 2;
+    const width = palletWidth - 4;
+    const height = palletHeight - 4;
+    
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', x);
+    rect.setAttribute('y', y);
+    rect.setAttribute('width', width);
+    rect.setAttribute('height', height);
+    rect.setAttribute('fill', '#ffa500');
+    rect.setAttribute('stroke', '#333');
+    rect.setAttribute('stroke-width', '1');
+    rect.setAttribute('class', 'pallet-rect');
+    rect.setAttribute('opacity', '0.8');
+    
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x + width/2);
+    text.setAttribute('y', y + height/2);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('fill', '#000');
+    text.setAttribute('font-size', '8');
+    text.setAttribute('font-weight', 'bold');
+    text.setAttribute('class', 'pallet-rect');
+    text.textContent = index + 1;
+    
+    svg.appendChild(rect);
+    svg.appendChild(text);
+  });
+
+  const totalPallets = existingPallets + pallets.length;
+  const capacityPercentage = (totalPallets / MAX_TRUCK_CAPACITY) * 100;
+  capacityFill.style.width = `${capacityPercentage}%`;
+  capacityText.textContent = `${Math.round(capacityPercentage)}% Capacity Used`;
+}
+
+function updatePalletList() {
+  const palletList = document.getElementById('pallet-list');
+
+  if (pallets.length === 0) {
+    palletList.innerHTML = '<div style="text-align: center; color: var(--muted-foreground); padding: 0.75rem; font-size: 0.75rem;">No pallets added yet</div>';
+    return;
+  }
+
+  let html = '';
+  pallets.forEach((pallet, index) => {
+    html += `
+      <div style="background: var(--card); border: 1px solid var(--border); border-radius: calc(var(--radius) - 2px); padding: 0.75rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div style="flex: 1;">
+          <div style="font-weight: 600; color: var(--card-foreground); margin-bottom: 0.1875rem; font-size: 0.75rem;">#${index + 1} - ${pallet.description}</div>
+          <div style="font-size: 0.6875rem; color: var(--muted-foreground);">${pallet.weight} lbs • ${pallet.dimensions}</div>
+        </div>
+        <button onclick="removePallet(${pallet.id})" style="background: var(--destructive); color: var(--destructive-foreground); border: none; padding: 0.375rem; border-radius: calc(var(--radius) - 4px); cursor: pointer; font-size: 0.6875rem;">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    `;
+  });
+
+  palletList.innerHTML = html;
+}
+
+function updateTruckStats() {
+  const userPallets = pallets.length;
+  const totalPalletsCount = existingPallets + userPallets;
+  const totalWeight = pallets.reduce((sum, pallet) => sum + pallet.weight, 0);
+  const remainingCapacity = MAX_TRUCK_CAPACITY - totalPalletsCount;
+  const estimatedRate = calculateEstimatedRate(userPallets, totalWeight);
+
+  document.getElementById('total-pallets').textContent = `${userPallets} (${totalPalletsCount} total)`;
+  document.getElementById('total-weight').textContent = `${totalWeight.toLocaleString()} lbs`;
+  document.getElementById('remaining-capacity').textContent = remainingCapacity;
+  document.getElementById('estimated-rate').textContent = `$${estimatedRate.toLocaleString()}`;
+}
+
+function calculateEstimatedRate(palletCount, totalWeight) {
+  if (!currentLaneForTruckFill || palletCount === 0) return 0;
+
+  const { opportunity, laneData } = currentLaneForTruckFill;
+
+  let miles = 0;
+  if (opportunity.type === 'Historical' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Pickup_Latitude']),
+      parseFloat(laneData['Pickup_Longitude']),
+      parseFloat(laneData['Dropoff_Latitude']),
+      parseFloat(laneData['Dropoff_Longitude'])
+    );
+  } else if (opportunity.type === 'LTL' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Origin_Latitude']),
+      parseFloat(laneData['Origin_Longitude']),
+      parseFloat(laneData['Destination_Latitude']),
+      parseFloat(laneData['Destination_Longitude'])
+    );
+  } else if (opportunity.type === 'Dedicated' && laneData) {
+    miles = calculateDistance(
+      parseFloat(laneData['Pickup_Latitude']),
+      parseFloat(laneData['Pickup_Longitude']),
+      parseFloat(laneData['Dropoff_Latitude']),
+      parseFloat(laneData['Dropoff_Longitude'])
+    );
+  }
+
+  const rateInfo = calculateRateFromCard('53\' Dry Trailer', miles || 1000);
+  const perPalletRate = Math.round(rateInfo.totalRate / 26);
+
+  return perPalletRate * palletCount;
+}
+
+function submitTruckLoad() {
+  if (pallets.length === 0) {
+    alert('Please add at least one pallet before confirming the load.');
+    return;
+  }
+
+  const { opportunity } = currentLaneForTruckFill;
+  const totalWeight = pallets.reduce((sum, pallet) => sum + pallet.weight, 0);
+  const estimatedRate = calculateEstimatedRate(pallets.length, totalWeight);
+
+  alert(`
+    Load confirmed for ${opportunity.type} lane ${opportunity.code}!
+    
+    Your Pallets: ${pallets.length}
+    Existing Pallets: ${existingPallets}
+    Total Pallets on Truck: ${existingPallets + pallets.length}
+    Your Total Weight: ${totalWeight.toLocaleString()} lbs
+    Your Estimated Rate: $${estimatedRate.toLocaleString()}
+    
+    This information has been saved to your load planning system.
+  `);
+
+  closeTruckFillModal();
+}
+
+// Results Page Functions
+function showResultsPage() {
+  document.getElementById('results-page').classList.add('show');
+
+  if (!resultsMap) {
+    initResultsMap();
+  }
+
+  setTimeout(() => {
+    if (currentPickupLocation && currentDropoffLocation) {
+      new google.maps.Marker({
+        position: { lat: currentPickupLocation.lat, lng: currentPickupLocation.lng },
+        map: resultsMap,
+        title: 'Pickup: ' + currentPickupLocation.address,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: '#00ff88',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      });
+
+      new google.maps.Marker({
+        position: { lat: currentDropoffLocation.lat, lng: currentDropoffLocation.lng },
+        map: resultsMap,
+        title: 'Dropoff: ' + currentDropoffLocation.address,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 6,
+          fillColor: '#ff4444',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 2
+        }
+      });
+
+      new google.maps.Polyline({
+        path: [
+          { lat: currentPickupLocation.lat, lng: currentPickupLocation.lng },
+          { lat: currentDropoffLocation.lat, lng: currentDropoffLocation.lng }
+        ],
+        geodesic: true,
+        strokeColor: '#0070f3',
+        strokeOpacity: 1.0,
+        strokeWeight: 2,
+        map: resultsMap
+      });
+
+      const bounds = new google.maps.LatLngBounds();
+      bounds.extend({ lat: currentPickupLocation.lat, lng: currentPickupLocation.lng });
+      bounds.extend({ lat: currentDropoffLocation.lat, lng: currentDropoffLocation.lng });
+      
+      const padding = {
+        top: 100,
+        right: 100,
+        bottom: 100,
+        left: 100
+      };
+      
+      resultsMap.fitBounds(bounds, padding);
+    }
+  }, 100);
+}
+
+function closeResultsPage() {
+  document.getElementById('results-page').classList.remove('show');
+}
+
+// Lane Selection Functions
+async function selectLane(index) {
+  const opportunity = currentOpportunities[index];
+
+  if (selectedLanes.has(index)) {
+    // Deselect
+    selectedLanes.delete(index);
+    const key = `${opportunity.type}-${opportunity.code}-${opportunity.matchType}`;
+    selectedLanesData.delete(key);
+    removeLaneFromMap(index);
+    
+    const cards = document.querySelectorAll('.lane-card');
+    if (cards[index]) {
+      cards[index].classList.remove('selected');
+    }
+    
+    // Remove from database
+    await removeSelectedLaneFromDB(opportunity);
+    
+    // Track interaction
+    await trackLaneInteraction(opportunity, 'deselected');
+  } else {
+    // Select
+    addToSelectedLanes(opportunity, index);
+    addLaneToMap(opportunity, index, resultsMap);
+    
+    const cards = document.querySelectorAll('.lane-card');
+    if (cards[index]) {
+      cards[index].classList.add('selected');
+    }
+    
+    // Save to database
+    await saveSelectedLane(opportunity);
+    
+    // Track interaction
+    await trackLaneInteraction(opportunity, 'selected');
+  }
+
+  updateSelectedCount();
+}
+
+function addLaneToMap(opportunity, index, targetMap = resultsMap) {
+  let pickupLat, pickupLng, dropoffLat, dropoffLng;
+
+  if (opportunity.type === 'Historical') {
+    const lane = historicalLanes.find(l => l['Code'] === opportunity.code);
+    if (lane) {
+      pickupLat = parseFloat(lane['Pickup_Latitude']);
+      pickupLng = parseFloat(lane['Pickup_Longitude']);
+      dropoffLat = parseFloat(lane['Dropoff_Latitude']);
+      dropoffLng = parseFloat(lane['Dropoff_Longitude']);
+    }
+  } else if (opportunity.type === 'LTL') {
+    const lane = warpLtlLanes.find(l => l['Lane_Code'] === opportunity.code);
+    if (lane) {
+      pickupLat = parseFloat(lane['Origin_Latitude']);
+      pickupLng = parseFloat(lane['Origin_Longitude']);
+      dropoffLat = parseFloat(lane['Destination_Latitude']);
+      dropoffLng = parseFloat(lane['Destination_Longitude']);
+    }
+  } else if (opportunity.type === 'Dedicated') {
+    const lane = dedicatedLanes.find(l => l['Lane_ID'] === opportunity.code);
+    if (lane) {
+      pickupLat = parseFloat(lane['Pickup_Latitude']);
+      pickupLng = parseFloat(lane['Pickup_Longitude']);
+      dropoffLat = parseFloat(lane['Dropoff_Latitude']);
+      dropoffLng = parseFloat(lane['Dropoff_Longitude']);
+    }
+  }
+
+  if (pickupLat && pickupLng && dropoffLat && dropoffLng) {
+    const pickupMarker = new google.maps.Marker({
+      position: { lat: pickupLat, lng: pickupLng },
+      map: targetMap,
+      title: `${opportunity.type} Lane Pickup: ${opportunity.customer}`,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 4,
+        fillColor: getColorForLaneType(opportunity.type),
+        fillOpacity: 0.8,
+        strokeColor: '#ffffff',
+        strokeWeight: 1
+      }
+    });
+    
+    const dropoffMarker = new google.maps.Marker({
+      position: { lat: dropoffLat, lng: dropoffLng },
+      map: targetMap,
+      title: `${opportunity.type} Lane Dropoff: ${opportunity.customer}`,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 4,
+        fillColor: getColorForLaneType(opportunity.type),
+        fillOpacity: 0.8,
+        strokeColor: '#ffffff',
+        strokeWeight: 1
+      }
+    });
+    
+    const laneLine = new google.maps.Polyline({
+      path: [
+        { lat: pickupLat, lng: pickupLng },
+        { lat: dropoffLat, lng: dropoffLng }
+      ],
+      geodesic: true,
+      strokeColor: getColorForMatchType(opportunity.matchType),
+      strokeOpacity: 0.7,
+      strokeWeight: 3,
+      map: targetMap,
+      icons: opportunity.matchType === 'backhaul' ? [{
+        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, scale: 4 },
+        offset: '0',
+        repeat: '20px'
+      }] : []
+    });
+    
+    selectedLaneMarkers.push({ index, markers: [pickupMarker, dropoffMarker] });
+    selectedLaneLines.push({ index, line: laneLine });
+  }
+}
+
+function removeLaneFromMap(index) {
+  const markerEntry = selectedLaneMarkers.find(entry => entry.index === index);
+  if (markerEntry) {
+    markerEntry.markers.forEach(marker => marker.setMap(null));
+    selectedLaneMarkers = selectedLaneMarkers.filter(entry => entry.index !== index);
+  }
+
+  const lineEntry = selectedLaneLines.find(entry => entry.index === index);
+  if (lineEntry) {
+    lineEntry.line.setMap(null);
+    selectedLaneLines = selectedLaneLines.filter(entry => entry.index !== index);
+  }
+}
+
+function clearAllSelections() {
+  selectedLaneMarkers.forEach(entry => {
+    entry.markers.forEach(marker => marker.setMap(null));
+  });
+  selectedLaneLines.forEach(entry => {
+    entry.line.setMap(null);
+  });
+
+  selectedLaneMarkers = [];
+  selectedLaneLines = [];
+  selectedLanes.clear();
+
+  document.querySelectorAll('.lane-card.selected').forEach(card => {
+    card.classList.remove('selected');
+  });
+}
+
+function getColorForLaneType(type) {
+  switch (type) {
+    case 'Historical': return '#ff4444';
+    case 'LTL': return '#8b5cf6';
+    case 'Dedicated': return '#0099ff';
+    default: return '#888888';
+  }
+}
+
+function getColorForMatchType(matchType) {
+  switch (matchType) {
+    case 'exact': return '#00ff88';
+    case 'backhaul': return '#ffab00';
+    case 'pickup-detour': return '#0099ff';
+    case 'dropoff-detour': return '#8b5cf6';
+    default: return '#888888';
+  }
+}
+
+// Workflow Functions
+function proceedToAnalysis() {
+  document.getElementById('step-upload').classList.remove('active');
+  document.getElementById('step-analysis').classList.add('active');
+}
+
+function goBackToUpload() {
+  document.getElementById('step-analysis').classList.remove('active');
+  document.getElementById('step-upload').classList.add('active');
+}
+
+function checkAllFilesUploaded() {
+  const mandatoryFiles = ['historical', 'dedicated', 'ltl', 'crossdocks'];
+  const allMandatoryUploaded = mandatoryFiles.every(fileType => filesUploaded[fileType]);
+  const proceedBtn = document.getElementById('proceed-btn');
+
+  if (allMandatoryUploaded) {
+    proceedBtn.style.display = 'block';
+    enhanceLanesWithPallets();
+  } else {
+    proceedBtn.style.display = 'none';
+  }
+}
+
+function updateProgress(fileType, status) {
+  const progressElement = document.getElementById(`${fileType}-progress`);
+  if (status) {
+    progressElement.textContent = 'Complete';
+    progressElement.classList.remove('pending');
+    progressElement.classList.add('complete');
+  } else {
+    if (fileType === 'facilities') {
+      progressElement.textContent = 'Optional';
+      progressElement.classList.remove('complete');
+      progressElement.classList.add('pending');
+    } else {
+      progressElement.textContent = 'Required';
+      progressElement.classList.remove('complete');
+      progressElement.classList.add('pending');
+    }
+  }
+}
+
+// Utility Functions
+function calculateDistance(lat1, lng1, lat2, lng2) {
+  const R = 3959;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+          Math.sin(dLng/2) * Math.sin(dLng/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
+}
+
+function geocodeAddress(address) {
+  return new Promise((resolve, reject) => {
+    geocoder.geocode({ address: address }, (results, status) => {
+      if (status === 'OK' && results[0]) {
+        resolve({
+          address: results[0].formatted_address,
+          lat: results[0].geometry.location.lat(),
+          lng: results[0].geometry.location.lng()
+        });
+      } else {
+        reject(status);
+      }
+    });
+  });
+}
+
+function addMarker(position, title, color) {
+  const marker = new google.maps.Marker({
+    position: position,
+    map: map,
+    title: title,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 5,
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 1
+    }
+  });
+
+  markers.push(marker);
+  return marker;
+}
+
+function clearMarkers() {
+  markers.forEach(marker => marker.setMap(null));
+  markers = [];
+}
+
+function clearCurrentSearchElements() {
+  currentSearchMarkers.forEach(marker => marker.setMap(null));
+  currentSearchMarkers = [];
+  currentSearchLines.forEach(line => line.setMap(null));
+  currentSearchLines = [];
+}
+
+function addSearchMarker(position, title, color) {
+  const marker = new google.maps.Marker({
+    position: position,
+    map: map,
+    title: title,
+    icon: {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 6,
+      fillColor: color,
+      fillOpacity: 1,
+      strokeColor: '#ffffff',
+      strokeWeight: 2
+    }
+  });
+
+  currentSearchMarkers.push(marker);
+  return marker;
+}
+
+function addCrossdocksToMap() {
+  warpCrossdocks.forEach(crossdock => {
+    const lat = parseFloat(crossdock.Latitude || crossdock.latitude);
+    const lng = parseFloat(crossdock.Longitude || crossdock.longitude);
+    const name = crossdock.Name || crossdock.name;
+    const type = crossdock.Type || crossdock.type;
+    const address = crossdock.Address || crossdock.address;
+    const city = crossdock.City || crossdock.city;
+    const state = crossdock.State || crossdock.state;
+    const zipcode = crossdock.Zipcode || crossdock.zipcode;
+
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      console.warn('Invalid coordinates for crossdock:', crossdock);
+      return;
+    }
+
+    const marker = new google.maps.Marker({
+      position: { lat: lat, lng: lng },
+      map: map,
+      title: name,
+      icon: {
+        path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+        scale: 5,
+        fillColor: '#FFFFFF',
+        fillOpacity: 1,
+        strokeColor: '#000000',
+        strokeWeight: 1
+      }
+    });
+
+    const infoWindow = new google.maps.InfoWindow({
+      content: `
+        <div style="background: var(--card); color: var(--card-foreground); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--border);">
+          <h4 style="color: var(--card-foreground); margin: 0 0 0.5rem 0; font-size: 0.8125rem; font-weight: 700;">${name}</h4>
+          <p style="color: var(--muted-foreground); margin: 0.25rem 0; font-size: 0.6875rem;"><strong>Type:</strong> ${type}</p>
+          <p style="color: var(--muted-foreground); margin: 0.25rem 0; font-size: 0.6875rem;"><strong>Address:</strong> ${address}</p>
+          <p style="color: var(--muted-foreground); margin: 0.25rem 0; font-size: 0.6875rem;"><strong>City:</strong> ${city}, ${state} ${zipcode}</p>
+        </div>
+      `
+    });
+
+    marker.addListener('click', () => {
+      infoWindow.open(map, marker);
+    });
+  });
+}
+
+// Enhanced Analysis Function with updated backhaul logic
+async function findOpportunities() {
+  const pickupInput = document.getElementById('pickup-input');
+  const dropoffInput = document.getElementById('dropoff-input');
+
+  const pickupText = pickupInput.value.trim();
+  const dropoffText = dropoffInput.value.trim();
+
+  if (!pickupText || !dropoffText) {
+    alert('Please enter both pickup and dropoff locations');
+    return;
+  }
+
+  try {
+    let pickupLocation, dropoffLocation;
+    
+    if (pickupInput.getAttribute('data-lat') && pickupInput.getAttribute('data-lng')) {
+      pickupLocation = {
+        address: pickupInput.getAttribute('data-address'),
+        lat: parseFloat(pickupInput.getAttribute('data-lat')),
+        lng: parseFloat(pickupInput.getAttribute('data-lng'))
+      };
+    } else {
+      pickupLocation = await geocodeAddress(pickupText);
+    }
+    
+    if (dropoffInput.getAttribute('data-lat') && dropoffInput.getAttribute('data-lng')) {
+      dropoffLocation = {
+        address: dropoffInput.getAttribute('data-address'),
+        lat: parseFloat(dropoffInput.getAttribute('data-lat')),
+        lng: parseFloat(dropoffInput.getAttribute('data-lng'))
+      };
+    } else {
+      dropoffLocation = await geocodeAddress(dropoffText);
+    }
+
+    currentPickupLocation = pickupLocation;
+    currentDropoffLocation = dropoffLocation;
+
+    // Create search session
+    await createSearchSession(pickupLocation, dropoffLocation);
+
+    clearCurrentSearchElements();
+    clearAllSelections();
+
+    addSearchMarker(
+      { lat: pickupLocation.lat, lng: pickupLocation.lng },
+      'Pickup: ' + pickupLocation.address,
+      '#00ff88'
+    );
+
+    addSearchMarker(
+      { lat: dropoffLocation.lat, lng: dropoffLocation.lng },
+      'Dropoff: ' + dropoffLocation.address,
+      '#ff4444'
+    );
+
+    const routeLine = new google.maps.Polyline({
+      path: [
+        { lat: pickupLocation.lat, lng: pickupLocation.lng },
+        { lat: dropoffLocation.lat, lng: dropoffLocation.lng }
+      ],
+      geodesic: true,
+      strokeColor: '#0070f3',
+      strokeOpacity: 1.0,
+      strokeWeight: 2,
+      map: map
+    });
+
+    currentSearchLines.push(routeLine);
+
+    const bounds = new google.maps.LatLngBounds();
+    bounds.extend({ lat: pickupLocation.lat, lng: pickupLocation.lng });
+    bounds.extend({ lat: dropoffLocation.lat, lng: dropoffLocation.lng });
+    
+    const padding = {
+      top: 100,
+      right: 100,
+      bottom: 100,
+      left: 100
+    };
+    
+    map.fitBounds(bounds, padding);
+
+    const opportunities = await analyzeCoMinglingOpportunities(pickupLocation, dropoffLocation);
+    currentOpportunities = opportunities;
+    filteredOpportunities = [...opportunities];
+    
+    // Update session with opportunity count
+    await updateSessionOpportunities(opportunities.length);
+    
+    showResultsPage();
+    displayOpportunities(opportunities, pickupLocation, dropoffLocation);
+
+  } catch (error) {
+    console.error('Error:', error);
+    alert('Error analyzing route. Please verify your addresses and try again.');
+  }
+}
+
+// Enhanced Co-Mingling Analysis with updated backhaul logic
+async function analyzeCoMinglingOpportunities(pickup, dropoff) {
+  const opportunities = [];
+  const EXACT_RADIUS_MILES = 5;
+  const DETOUR_RADIUS_MILES = 20;
+
+  for (const lane of historicalLanes) {
+    try {
+      const pickupLat = parseFloat(lane['Pickup_Latitude']);
+      const pickupLng = parseFloat(lane['Pickup_Longitude']);
+      const dropoffLat = parseFloat(lane['Dropoff_Latitude']);
+      const dropoffLng = parseFloat(lane['Dropoff_Longitude']);
+      
+      if (pickupLat && pickupLng && dropoffLat && dropoffLng) {
+        const pickupDistance = calculateDistance(pickup.lat, pickup.lng, pickupLat, pickupLng);
+        const dropoffDistance = calculateDistance(dropoff.lat, dropoff.lng, dropoffLat, dropoffLng);
+        
+        if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Historical',
+            customer: lane['Customer Name'],
+            code: lane['Code'] || '',
+            route: `${lane['Pickup City']}, ${lane['Pickup State']} → ${lane['Dropoff City']}, ${lane['Dropoff State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'exact',
+            matchTypeDisplay: 'Exact Match',
+            detourInfo: null
+          });
+        }
+        else if (pickupDistance <= DETOUR_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Historical',
+            customer: lane['Customer Name'],
+            code: lane['Code'] || '',
+            route: `${lane['Pickup City']}, ${lane['Pickup State']} → ${lane['Dropoff City']}, ${lane['Dropoff State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'pickup-detour',
+            matchTypeDisplay: 'Pickup Detour',
+            detourInfo: `Pickup detour: ${Math.round(pickupDistance)} miles from lane origin`
+          });
+        }
+        else if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Historical',
+            customer: lane['Customer Name'],
+            code: lane['Code'] || '',
+            route: `${lane['Pickup City']}, ${lane['Pickup State']} → ${lane['Dropoff City']}, ${lane['Dropoff State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'dropoff-detour',
+            matchTypeDisplay: 'Dropoff Detour',
+            detourInfo: `Dropoff detour: ${Math.round(dropoffDistance)} miles from lane destination`
+          });
+        }
+        
+        // Updated backhaul logic - look for lanes FROM dropoff TO pickup (reverse)
+        const backhaulPickupDistance = calculateDistance(dropoff.lat, dropoff.lng, pickupLat, pickupLng);
+        const backhaulDropoffDistance = calculateDistance(pickup.lat, pickup.lng, dropoffLat, dropoffLng);
+        
+        if (backhaulPickupDistance <= DETOUR_RADIUS_MILES && backhaulDropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Historical',
+            customer: lane['Customer Name'],
+            code: lane['Code'] + 'B',
+            route: `${lane['Pickup City']}, ${lane['Pickup State']} → ${lane['Dropoff City']}, ${lane['Dropoff State']}`,
+            distance: backhaulPickupDistance + backhaulDropoffDistance,
+            matchType: 'backhaul',
+            matchTypeDisplay: 'Backhaul',
+            detourInfo: `Backhaul opportunity for return trip from ${dropoff.address.split(',')[0]} to ${pickup.address.split(',')[0]}`
+          });
+        }
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  for (const lane of warpLtlLanes) {
+    try {
+      const originLat = parseFloat(lane['Origin_Latitude']);
+      const originLng = parseFloat(lane['Origin_Longitude']);
+      const destLat = parseFloat(lane['Destination_Latitude']);
+      const destLng = parseFloat(lane['Destination_Longitude']);
+      
+      if (originLat && originLng && destLat && destLng) {
+        const pickupDistance = calculateDistance(pickup.lat, pickup.lng, originLat, originLng);
+        const dropoffDistance = calculateDistance(dropoff.lat, dropoff.lng, destLat, destLng);
+        
+        if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'LTL',
+            customer: 'WARP Network',
+            code: lane['Lane_Code'] || '',
+            route: `${lane['Origin_City']}, ${lane['Origin_State']} → ${lane['Destination_City']}, ${lane['Destination_State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'exact',
+            matchTypeDisplay: 'Exact Match',
+            detourInfo: null
+          });
+        }
+        else if (pickupDistance <= DETOUR_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'LTL',
+            customer: 'WARP Network',
+            code: lane['Lane_Code'] || '',
+            route: `${lane['Origin_City']}, ${lane['Origin_State']} → ${lane['Destination_City']}, ${lane['Destination_State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'pickup-detour',
+            matchTypeDisplay: 'Pickup Detour',
+            detourInfo: `Pickup detour: ${Math.round(pickupDistance)} miles from lane origin`
+          });
+        }
+        else if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'LTL',
+            customer: 'WARP Network',
+            code: lane['Lane_Code'] || '',
+            route: `${lane['Origin_City']}, ${lane['Origin_State']} → ${lane['Destination_City']}, ${lane['Destination_State']}`,
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'dropoff-detour',
+            matchTypeDisplay: 'Dropoff Detour',
+            detourInfo: `Dropoff detour: ${Math.round(dropoffDistance)} miles from lane destination`
+          });
+        }
+        
+        // Backhaul for LTL lanes
+        const backhaulPickupDistance = calculateDistance(dropoff.lat, dropoff.lng, originLat, originLng);
+        const backhaulDropoffDistance = calculateDistance(pickup.lat, pickup.lng, destLat, destLng);
+        
+        if (backhaulPickupDistance <= DETOUR_RADIUS_MILES && backhaulDropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'LTL',
+            customer: 'WARP Network',
+            code: lane['Lane_Code'] + 'B',
+            route: `${lane['Origin_City']}, ${lane['Origin_State']} → ${lane['Destination_City']}, ${lane['Destination_State']}`,
+            distance: backhaulPickupDistance + backhaulDropoffDistance,
+            matchType: 'backhaul',
+            matchTypeDisplay: 'Backhaul',
+            detourInfo: `Backhaul opportunity for return trip from ${dropoff.address.split(',')[0]} to ${pickup.address.split(',')[0]}`
+          });
+        }
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  for (const lane of dedicatedLanes) {
+    try {
+      const pickupLat = parseFloat(lane['Pickup_Latitude']);
+      const pickupLng = parseFloat(lane['Pickup_Longitude']);
+      const dropoffLat = parseFloat(lane['Dropoff_Latitude']);
+      const dropoffLng = parseFloat(lane['Dropoff_Longitude']);
+      
+      if (pickupLat && pickupLng && dropoffLat && dropoffLng) {
+        const pickupDistance = calculateDistance(pickup.lat, pickup.lng, pickupLat, pickupLng);
+        const dropoffDistance = calculateDistance(dropoff.lat, dropoff.lng, dropoffLat, dropoffLng);
+        
+        if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Dedicated',
+            customer: 'Dedicated Route',
+            code: lane['Lane_ID'] || '',
+            route: lane['Route_Description'],
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'exact',
+            matchTypeDisplay: 'Exact Match',
+            detourInfo: null
+          });
+        }
+        else if (pickupDistance <= DETOUR_RADIUS_MILES && dropoffDistance <= EXACT_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Dedicated',
+            customer: 'Dedicated Route',
+            code: lane['Lane_ID'] || '',
+            route: lane['Route_Description'],
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'pickup-detour',
+            matchTypeDisplay: 'Pickup Detour',
+            detourInfo: `Pickup detour: ${Math.round(pickupDistance)} miles from lane origin`
+          });
+        }
+        else if (pickupDistance <= EXACT_RADIUS_MILES && dropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Dedicated',
+            customer: 'Dedicated Route',
+            code: lane['Lane_ID'] || '',
+            route: lane['Route_Description'],
+            distance: pickupDistance + dropoffDistance,
+            matchType: 'dropoff-detour',
+            matchTypeDisplay: 'Dropoff Detour',
+            detourInfo: `Dropoff detour: ${Math.round(dropoffDistance)} miles from lane destination`
+          });
+        }
+        
+        // Backhaul for dedicated lanes
+        const backhaulPickupDistance = calculateDistance(dropoff.lat, dropoff.lng, pickupLat, pickupLng);
+        const backhaulDropoffDistance = calculateDistance(pickup.lat, pickup.lng, dropoffLat, dropoffLng);
+        
+        if (backhaulPickupDistance <= DETOUR_RADIUS_MILES && backhaulDropoffDistance <= DETOUR_RADIUS_MILES) {
+          opportunities.push({
+            type: 'Dedicated',
+            customer: 'Dedicated Route',
+            code: lane['Lane_ID'] + 'B',
+            route: lane['Route_Description'],
+            distance: backhaulPickupDistance + backhaulDropoffDistance,
+            matchType: 'backhaul',
+            matchTypeDisplay: 'Backhaul',
+            detourInfo: `Backhaul opportunity for return trip from ${dropoff.address.split(',')[0]} to ${pickup.address.split(',')[0]}`
+          });
+        }
+      }
+    } catch (error) {
+      continue;
+    }
+  }
+
+  opportunities.sort((a, b) => {
+    const matchTypePriority = {
+      'exact': 1,
+      'pickup-detour': 2,
+      'dropoff-detour': 3,
+      'backhaul': 4
+    };
+    
+    const aPriority = matchTypePriority[a.matchType] || 5;
+    const bPriority = matchTypePriority[b.matchType] || 5;
+    
+    if (aPriority !== bPriority) {
+      return aPriority - bPriority;
+    }
+    
+    return a.distance - b.distance;
+  });
+
+  return opportunities;
+}
+
+// Display Results with filter controls
+function displayOpportunities(opportunities, pickup, dropoff) {
+  const resultsSidebar = document.getElementById('results-sidebar');
+
+  if (opportunities.length === 0) {
+    resultsSidebar.innerHTML = `
+      <div class="no-results">
+        <i class="fas fa-search" style="font-size: 1.5rem; margin-bottom: 0.75rem; color: var(--muted-foreground);"></i>
+        <h3>No Co-Mingling Opportunities Found</h3>
+        <p>No matching routes found within the search radius of your specified lane.</p>
+        <p>Consider expanding your search radius or exploring WARP crossdock solutions.</p>
+      </div>
+    `;
+    return;
+  }
+
+  const exactMatches = opportunities.filter(opp => opp.matchType === 'exact');
+  const backhaulMatches = opportunities.filter(opp => opp.matchType === 'backhaul');
+  const partialMatches = opportunities.filter(opp => 
+    opp.matchType === 'pickup-detour' || opp.matchType === 'dropoff-detour'
+  );
+
+  let html = `
+    <div style="margin-bottom: 1.25rem;">
+      <h2 style="color: var(--card-foreground); font-size: 1rem; margin-bottom: 0.75rem;">
+        ${opportunities.length} Co-Mingling Opportunities Found
+      </h2>
+      
+      <div class="search-controls">
+        <div class="input-group">
+          <label>Search Routes</label>
+          <input type="text" id="results-search-input" placeholder="Search by city, customer, or lane code..." 
+                 oninput="searchOpportunities(this.value)" style="margin-bottom: 0.375rem;">
+        </div>
+        <div class="sort-controls">
+          <button class="sort-btn" onclick="sortOpportunities('transit_time', 'asc')">
+            <i class="fas fa-clock"></i> Transit Time ↑
+          </button>
+          <button class="sort-btn" onclick="sortOpportunities('frequency', 'desc')">
+            <i class="fas fa-calendar"></i> Frequency ↓
+          </button>
+          <button class="sort-btn" onclick="sortOpportunities('otp', 'desc')">
+            <i class="fas fa-percentage"></i> OTP Score ↓
+          </button>
+          <button class="sort-btn" onclick="sortOpportunities('pallets', 'asc')">
+            <i class="fas fa-boxes"></i> Available Space ↑
+          </button>
+          <button class="sort-btn" onclick="sortOpportunities('days_run', 'desc')">
+            <i class="fas fa-calendar-week"></i> Days Run ↓
+          </button>
+          <button class="sort-btn" onclick="sortOpportunities('customer', 'asc')">
+            <i class="fas fa-building"></i> Customer ↑
+          </button>
+        </div>
+      </div>
+      
+      <!-- Filter Controls -->
+      <div class="filter-controls">
+        <h3 class="filter-title">Filters</h3>
+        
+        <div class="filter-group">
+          <label class="filter-label">Available Space</label>
+          <div class="filter-options">
+            <label class="filter-option">
+              <input type="checkbox" value="1-5" onchange="toggleSpaceFilter(this)">
+              1-5 spots
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="6-10" onchange="toggleSpaceFilter(this)">
+              6-10 spots
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="11-15" onchange="toggleSpaceFilter(this)">
+              11-15 spots
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="16+" onchange="toggleSpaceFilter(this)">
+              16+ spots
+            </label>
+          </div>
+        </div>
+        
+        <div class="filter-group">
+          <label class="filter-label">Frequency</label>
+          <div class="filter-options">
+            <label class="filter-option">
+              <input type="checkbox" value="Daily" onchange="toggleFrequencyFilter(this)">
+              Daily
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="Weekly" onchange="toggleFrequencyFilter(this)">
+              Weekly
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="Bi-weekly" onchange="toggleFrequencyFilter(this)">
+              Bi-weekly
+            </label>
+            <label class="filter-option">
+              <input type="checkbox" value="Monthly" onchange="toggleFrequencyFilter(this)">
+              Monthly
+            </label>
+          </div>
+        </div>
+      </div>
+      
+      <button class="btn btn-small" onclick="clearAllSelections()" style="background: var(--destructive);">
+        <i class="fas fa-times"></i> Clear Selections
+      </button>
+      
+      <small style="display: block; margin-top: 0.375rem; color: var(--muted-foreground);">
+        Click on any lane card to select/deselect and visualize on the map
+      </small>
+    </div>
+    
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-button active" onclick="switchTab('exact-matches', this)">
+          Exact Matches (${exactMatches.length})
+        </button>
+        <button class="tab-button" onclick="switchTab('backhaul-matches', this)">
+          Backhaul (${backhaulMatches.length})
+        </button>
+        <button class="tab-button" onclick="switchTab('partial-matches', this)">
+          Partial Matches (${partialMatches.length})
+        </button>
+      </div>
+      
+      <div id="exact-matches" class="tab-content active">
+        ${generateOpportunityCards(exactMatches, 'exact')}
+      </div>
+      
+      <div id="backhaul-matches" class="tab-content">
+        ${generateOpportunityCards(backhaulMatches, 'backhaul')}
+      </div>
+      
+      <div id="partial-matches" class="tab-content">
+        ${generateOpportunityCards(partialMatches, 'partial')}
+      </div>
+    </div>
+  `;
+
+  resultsSidebar.innerHTML = html;
+}
+
+function toggleSpaceFilter(checkbox) {
+  if (checkbox.checked) {
+    selectedAvailableSpace.push(checkbox.value);
+  } else {
+    selectedAvailableSpace = selectedAvailableSpace.filter(val => val !== checkbox.value);
+  }
+  applyFilters();
+}
+
+function toggleFrequencyFilter(checkbox) {
+  if (checkbox.checked) {
+    selectedFrequencies.push(checkbox.value);
+  } else {
+    selectedFrequencies = selectedFrequencies.filter(val => val !== checkbox.value);
+  }
+  applyFilters();
+}
+
+function generateOpportunityCards(opportunities, tabType) {
+  if (opportunities.length === 0) {
+    let message = '';
+    switch (tabType) {
+      case 'exact':
+        message = 'No exact matches found. Check other tabs for alternative opportunities.';
+        break;
+      case 'backhaul':
+        message = 'No backhaul opportunities found for the return trip.';
+        break;
+      case 'partial':
+        message = 'No partial matches found within detour range.';
+        break;
+    }
+    
+    return `<div class="no-results" style="margin-top: 0.75rem;">${message}</div>`;
+  }
+
+  let html = '<div class="lane-cards-container">';
+
+  opportunities.forEach((opp, localIndex) => {
+    const globalIndex = currentOpportunities.findIndex(curr => 
+      curr.code === opp.code && curr.type === opp.type && curr.matchType === opp.matchType
+    );
+    
+    const miles = calculateTransitTimeValue(opp);
+    const transitTimeSolo = calculateTransitTime(miles, 'solo');
+    const transitTimeTeam = calculateTransitTime(miles, 'team');
+    const frequency = getLaneFrequency(opp);
+    const daysRun = getLaneDaysRun(opp);
+    const otpDisplay = getOTPDisplay(getOTPValue(opp));
+    const existingPallets = getExistingPalletCount(opp);
+    const availableSpace = MAX_TRUCK_CAPACITY - existingPallets;
+    
+    let laneData = null;
+    if (opp.type === 'Historical') {
+      laneData = historicalLanes.find(l => l['Code'] === opp.code);
+    } else if (opp.type === 'LTL') {
+      laneData = warpLtlLanes.find(l => l['Lane_Code'] === opp.code);
+    } else if (opp.type === 'Dedicated') {
+      laneData = dedicatedLanes.find(l => l['Lane_ID'] === opp.code);
+    }
+    
+    const isSelected = selectedLanes.has(globalIndex) ? 'selected' : '';
+    
+    html += `
+      <div class="lane-card ${isSelected}" onclick="selectLane(${globalIndex})" data-index="${globalIndex}">
+        <div class="lane-card-header">
+          <div>
+            <div class="lane-title">${opp.customer}</div>
+            <div class="lane-route">${opp.route}</div>
+          </div>
+          <div class="lane-badges">
+            <span class="lane-type-badge lane-type-${opp.type.toLowerCase()}">${opp.type}</span>
+            <span class="match-type-badge match-type-${opp.matchType}">${opp.matchTypeDisplay}</span>
+          </div>
+        </div>
+        
+        <div class="pallet-indicator">
+          <div>
+            <div class="pallet-info-text">Current truck load:</div>
+            <div class="pallet-count">${existingPallets} / 26 pallets</div>
+          </div>
+          <div>
+            <div class="pallet-info-text">Available space:</div>
+            <div class="pallet-count" style="color: ${availableSpace > 10 ? 'var(--success)' : 'var(--warning)'}">
+              ${availableSpace} spots
+            </div>
+          </div>
+        </div>
+        
+        <div class="lane-card-content">
+          <div class="lane-details-grid">
+            <div class="lane-detail">
+              <span class="lane-detail-label">Transit Time</span>
+              <span class="lane-detail-value transit-time">${transitTimeSolo.toFixed(1)}h Solo / ${transitTimeTeam.toFixed(1)}h Team</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">Frequency</span>
+              <span class="lane-detail-value">${frequency}</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">Days Run</span>
+              <span class="lane-detail-value">${daysRun}</span>
+            </div>
+            <div class="lane-detail">
+              <span class="lane-detail-label">OTP Score</span>
+              <span class="lane-detail-value otp-score ${otpDisplay.class}">${otpDisplay.text}</span>
+            </div>
+          </div>
+          
+          ${opp.detourInfo ? `<div class="detour-info">${opp.detourInfo}</div>` : ''}
+        </div>
+        
+        <div class="lane-card-actions">
+          <button class="btn btn-small btn-info" onclick="event.stopPropagation(); openPricingModal(currentOpportunities[${globalIndex}], ${globalIndex})">
+            <i class="fas fa-dollar-sign"></i> View Pricing
+          </button>
+          <button class="btn btn-small btn-purple" onclick="event.stopPropagation(); openTruckFillModal(currentOpportunities[${globalIndex}], ${laneData ? JSON.stringify(laneData).replace(/"/g, '&quot;') : 'null'})">
+            <i class="fas fa-truck"></i> Fill Truck
+          </button>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+// Tab Management
+function switchTab(tabName, element) {
+  document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+  element.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  document.getElementById(tabName).classList.add('active');
+}
+
+// File Upload Handlers
+function setupFileUploads() {
+  const uploads = [
+    { area: 'facilities-upload-area', input: 'facilities-upload', handler: handleFacilitiesFile, type: 'facilities' },
+    { area: 'historical-upload-area', input: 'historical-upload', handler: handleHistoricalFile, type: 'historical' },
+    { area: 'dedicated-upload-area', input: 'dedicated-upload', handler: handleDedicatedFile, type: 'dedicated' },
+    { area: 'ltl-upload-area', input: 'ltl-upload', handler: handleLtlFile, type: 'ltl' },
+    { area: 'crossdocks-upload-area', input: 'crossdocks-upload', handler: handleCrossdocksFile, type: 'crossdocks' }
+  ];
+
+  uploads.forEach(({ area, input, handler, type }) => {
+    const uploadArea = document.getElementById(area);
+    const fileInput = document.getElementById(input);
+
+    if (uploadArea && fileInput) {
+      uploadArea.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handler(e.target.files[0], type);
+        }
+      });
+
+      uploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = 'var(--warp-accent)';
+      });
+
+      uploadArea.addEventListener('dragleave', () => {
+        uploadArea.style.borderColor = 'var(--border)';
+      });
+
+      uploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        uploadArea.style.borderColor = 'var(--border)';
+        if (e.dataTransfer.files.length > 0) {
+          handler(e.dataTransfer.files[0], type);
+        }
+      });
+    }
+  });
+}
+
+function handleFacilitiesFile(file, type) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      customerFacilities = results.data;
+      document.getElementById('facilities-status').style.display = 'block';
+      document.getElementById('facilities-status').textContent = `✅ ${customerFacilities.length} facilities loaded`;
+      filesUploaded.facilities = true;
+      updateProgress(type, true);
+      checkAllFilesUploaded();
+      addFacilitiesToMap();
+    },
+    error: (error) => {
+      console.error('Error parsing facilities file:', error);
+      alert('Error parsing CSV file. Please check the format.');
+    }
+  });
+}
+
+function handleHistoricalFile(file, type) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      historicalLanes = results.data;
+      document.getElementById('historical-status').style.display = 'block';
+      document.getElementById('historical-status').textContent = `✅ ${historicalLanes.length} lanes loaded`;
+      filesUploaded.historical = true;
+      updateProgress(type, true);
+      checkAllFilesUploaded();
+    },
+    error: (error) => {
+      console.error('Error parsing historical lanes file:', error);
+      alert('Error parsing CSV file. Please check the format.');
+    }
+  });
+}
+
+function handleDedicatedFile(file, type) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      dedicatedLanes = results.data;
+      document.getElementById('dedicated-status').style.display = 'block';
+      document.getElementById('dedicated-status').textContent = `✅ ${dedicatedLanes.length} lanes loaded`;
+      filesUploaded.dedicated = true;
+      updateProgress(type, true);
+      checkAllFilesUploaded();
+    },
+    error: (error) => {
+      console.error('Error parsing dedicated lanes file:', error);
+      alert('Error parsing CSV file. Please check the format.');
+    }
+  });
+}
+
+function handleLtlFile(file, type) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      warpLtlLanes = results.data;
+      document.getElementById('ltl-status').style.display = 'block';
+      document.getElementById('ltl-status').textContent = `✅ ${warpLtlLanes.length} lanes loaded`;
+      filesUploaded.ltl = true;
+      updateProgress(type, true);
+      checkAllFilesUploaded();
+    },
+    error: (error) => {
+      console.error('Error parsing LTL lanes file:', error);
+      alert('Error parsing CSV file. Please check the format.');
+    }
+  });
+}
+
+function handleCrossdocksFile(file, type) {
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: (results) => {
+      warpCrossdocks = results.data;
+      document.getElementById('crossdocks-status').style.display = 'block';
+      document.getElementById('crossdocks-status').textContent = `✅ ${warpCrossdocks.length} crossdocks loaded`;
+      filesUploaded.crossdocks = true;
+      updateProgress(type, true);
+      checkAllFilesUploaded();
+      addCrossdocksToMap();
+    },
+    error: (error) => {
+      console.error('Error parsing crossdocks file:', error);
+      alert('Error parsing CSV file. Please check the format.');
+    }
+  });
+}
+
+function addFacilitiesToMap() {
+  customerFacilities.forEach(facility => {
+    if (facility.Latitude && facility.Longitude) {
+      const marker = new google.maps.Marker({
+        position: { lat: parseFloat(facility.Latitude), lng: parseFloat(facility.Longitude) },
+        map: map,
+        title: `${facility.Customer_Name} - ${facility.Facility_Type}`,
+        icon: {
+          path: google.maps.SymbolPath.BACKWARD_CLOSED_ARROW,
+          scale: 3,
+          fillColor: facility.Facility_Type === 'FC' ? '#0099ff' : '#8b5cf6',
+          fillOpacity: 1,
+          strokeColor: '#ffffff',
+          strokeWeight: 1
+        }
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="background: var(--card); color: var(--card-foreground); padding: 0.75rem; border-radius: var(--radius); border: 1px solid var(--border);">
+            <h4 style="color: var(--card-foreground); margin: 0 0 0.5rem 0; font-size: 0.8125rem; font-weight: 700;">${facility.Customer_Name}</h4>
+            <p style="color: var(--muted-foreground); margin: 0.25rem 0; font-size: 0.6875rem;"><strong>${facility.Facility_Type}:</strong> ${facility.Name}</p>
+            <p style="color: var(--muted-foreground); margin: 0.25rem 0; font-size: 0.6875rem;">${facility.Address}</p>
+          </div>
+        `
+      });
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker);
+      });
+    }
+  });
+}
+
+// Initialize everything
+document.addEventListener('DOMContentLoaded', () => {
+  setupFileUploads();
+
+  // Handle sign-in form
+  document.getElementById('signin-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    signIn();
+  });
+
+  // Handle sign-up form
+  document.getElementById('signup-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    signUp();
+  });
+
+  // Check for existing session
+  supabase.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      currentUser = session.user;
+      isGuest = false;
+      showApp();
+    } else {
+      showLogin();
+    }
+  });
+
+  // Listen for auth changes
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN') {
+      currentUser = session.user;
+      isGuest = false;
+      showApp();
+    } else if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      isGuest = false;
+      showLogin();
+    }
+  });
+});
+
+// Load Google Maps script
+function loadGoogleMaps() {
+  const script = document.createElement('script');
+  script.src = `https://maps.googleapis.com/maps/api/js?key=${CONFIG.GOOGLE_MAPS_API_KEY}&callback=initMap&libraries=places,geometry`;
+  script.async = true;
+  script.defer = true;
+  script.onerror = () => {
+    console.error('Failed to load Google Maps API');
+    alert('Failed to load Google Maps. Please check your API key and network connection.');
+  };
+  document.head.appendChild(script);
+}
+
+// Initialize when page loads
+window.addEventListener('load', () => {
+  loadGoogleMaps();
+});
+</script>
+
+</body>
+</html>
